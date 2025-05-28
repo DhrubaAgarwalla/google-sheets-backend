@@ -134,22 +134,68 @@ class SheetsService {
         dashboardSheetId = spreadsheetResponse.data.sheets[1].properties.sheetId;
       }
 
-      // Populate sheets
-      await this.populateRegistrationsSheet(spreadsheetId, eventData, registrations);
-      if (hasTeamRegistrations) {
-        await this.populateTeamMembersSheet(spreadsheetId, eventData, registrations);
+      // Populate sheets - continue even if some fail
+      try {
+        await this.populateRegistrationsSheet(spreadsheetId, eventData, registrations);
+        console.log('Successfully populated registrations sheet');
+      } catch (error) {
+        console.error('Failed to populate registrations sheet:', error.message);
+        // Continue anyway - the sheet exists, just might be empty
       }
-      await this.populateDashboardSheet(spreadsheetId, eventData, registrations);
 
-      // Format sheets
-      await this.formatRegistrationsSheet(spreadsheetId, registrationsSheetId, registrations, eventData);
       if (hasTeamRegistrations) {
-        await this.formatTeamMembersSheet(spreadsheetId, teamMembersSheetId, registrations);
+        try {
+          await this.populateTeamMembersSheet(spreadsheetId, eventData, registrations);
+          console.log('Successfully populated team members sheet');
+        } catch (error) {
+          console.error('Failed to populate team members sheet:', error.message);
+          // Continue anyway
+        }
       }
-      await this.formatDashboardSheet(spreadsheetId, dashboardSheetId);
 
-      // Make the sheet publicly viewable
-      await this.makeSheetPublic(spreadsheetId);
+      try {
+        await this.populateDashboardSheet(spreadsheetId, eventData, registrations);
+        console.log('Successfully populated dashboard sheet');
+      } catch (error) {
+        console.error('Failed to populate dashboard sheet:', error.message);
+        // Continue anyway
+      }
+
+      // Format sheets - continue even if some fail
+      try {
+        await this.formatRegistrationsSheet(spreadsheetId, registrationsSheetId, registrations, eventData);
+        console.log('Successfully formatted registrations sheet');
+      } catch (error) {
+        console.error('Failed to format registrations sheet:', error.message);
+        // Continue anyway
+      }
+
+      if (hasTeamRegistrations) {
+        try {
+          await this.formatTeamMembersSheet(spreadsheetId, teamMembersSheetId, registrations);
+          console.log('Successfully formatted team members sheet');
+        } catch (error) {
+          console.error('Failed to format team members sheet:', error.message);
+          // Continue anyway
+        }
+      }
+
+      try {
+        await this.formatDashboardSheet(spreadsheetId, dashboardSheetId);
+        console.log('Successfully formatted dashboard sheet');
+      } catch (error) {
+        console.error('Failed to format dashboard sheet:', error.message);
+        // Continue anyway
+      }
+
+      // Make the sheet publicly viewable - continue even if this fails
+      try {
+        await this.makeSheetPublic(spreadsheetId);
+        console.log('Successfully made sheet publicly editable');
+      } catch (error) {
+        console.warn('Failed to make sheet public - sheet will require permission requests:', error.message);
+        // Continue anyway - sheet is still created
+      }
 
       // Get the shareable link
       const shareableLink = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit#gid=0`;
@@ -244,11 +290,20 @@ class SheetsService {
 
   /**
    * Prepare data for the Google Sheet
+   * This function is designed to be resilient - if any part fails, it will continue with available data
    */
   prepareSheetData(eventData, registrations) {
     try {
       console.log('Preparing sheet data with eventData:', JSON.stringify(eventData, null, 2));
-      console.log('Sample registration:', JSON.stringify(registrations[0], null, 2));
+
+      // Safely log sample registration
+      try {
+        if (registrations && registrations.length > 0) {
+          console.log('Sample registration:', JSON.stringify(registrations[0], null, 2));
+        }
+      } catch (logError) {
+        console.warn('Could not log sample registration:', logError.message);
+      }
 
       // Ensure eventData exists and has required properties
       if (!eventData) {
@@ -256,7 +311,19 @@ class SheetsService {
         throw new Error('Event data is required');
       }
 
+      // Ensure registrations is an array
+      if (!Array.isArray(registrations)) {
+        console.error('Registrations is not an array:', typeof registrations);
+        throw new Error('Registrations must be an array');
+      }
+
+      if (registrations.length === 0) {
+        console.error('No registrations provided');
+        throw new Error('At least one registration is required');
+      }
+
       // Extract custom fields from event data - ensure it's an array and validate structure
+      // This section is designed to never fail - if anything goes wrong, we just skip custom fields
       let customFields = [];
       try {
         if (eventData.custom_fields) {
@@ -264,21 +331,26 @@ class SheetsService {
 
           if (Array.isArray(eventData.custom_fields)) {
             customFields = eventData.custom_fields.filter(field => {
-              // Validate each custom field has required properties
-              if (!field || typeof field !== 'object') {
-                console.warn('Invalid custom field (not an object):', field);
+              try {
+                // Validate each custom field has required properties
+                if (!field || typeof field !== 'object') {
+                  console.warn('Invalid custom field (not an object):', field);
+                  return false;
+                }
+                if (!field.id || typeof field.id !== 'string') {
+                  console.warn('Invalid custom field (missing or invalid id):', field);
+                  return false;
+                }
+                if (!field.label || typeof field.label !== 'string') {
+                  console.warn('Invalid custom field (missing or invalid label):', field);
+                  return false;
+                }
+                console.log(`Valid custom field found: ${field.id} - ${field.label}`);
+                return true;
+              } catch (fieldError) {
+                console.warn('Error validating custom field:', fieldError.message, field);
                 return false;
               }
-              if (!field.id || typeof field.id !== 'string') {
-                console.warn('Invalid custom field (missing or invalid id):', field);
-                return false;
-              }
-              if (!field.label || typeof field.label !== 'string') {
-                console.warn('Invalid custom field (missing or invalid label):', field);
-                return false;
-              }
-              console.log(`Valid custom field found: ${field.id} - ${field.label}`);
-              return true;
             });
           } else {
             console.warn('custom_fields is not an array:', typeof eventData.custom_fields, eventData.custom_fields);
@@ -287,20 +359,41 @@ class SheetsService {
           console.log('No custom_fields found in eventData');
         }
       } catch (error) {
-        console.error('Error processing custom fields:', error);
+        console.error('Error processing custom fields - continuing without custom fields:', error.message);
         customFields = [];
       }
-      console.log('Valid custom fields found:', customFields.length, customFields.map(f => `${f.id}:${f.label}`));
 
-      // Check if any registration has payment information
-      const hasPaymentInfo = registrations.some(reg =>
-        reg.payment_screenshot_url || reg.payment_status || reg.payment_amount
-      );
+      console.log('Valid custom fields found:', customFields.length);
+      if (customFields.length > 0) {
+        console.log('Custom field details:', customFields.map(f => `${f.id}:${f.label}`));
+      }
+
+      // Check if any registration has payment information - with error handling
+      let hasPaymentInfo = false;
+      try {
+        hasPaymentInfo = registrations.some(reg => {
+          try {
+            return reg.payment_screenshot_url || reg.payment_status || reg.payment_amount;
+          } catch (regError) {
+            console.warn('Error checking payment info for registration:', regError.message);
+            return false;
+          }
+        });
+      } catch (error) {
+        console.warn('Error checking payment information - continuing without payment info:', error.message);
+        hasPaymentInfo = false;
+      }
 
       // Check payment requirement - handle both property names for backward compatibility
-      const paymentRequired = eventData.payment_required || eventData.requires_payment || false;
+      let paymentRequired = false;
+      try {
+        paymentRequired = eventData.payment_required || eventData.requires_payment || false;
+      } catch (error) {
+        console.warn('Error checking payment requirement - assuming no payment required:', error.message);
+        paymentRequired = false;
+      }
 
-      // Build headers
+      // Build headers - with error handling
       const headers = [
         'S.No.',
         'Name',
@@ -314,25 +407,45 @@ class SheetsService {
         'Registration Date'
       ];
 
-      // Add custom field headers
-      customFields.forEach(field => {
-        try {
-          headers.push(field.label);
-        } catch (error) {
-          console.error('Error adding custom field header:', error, field);
-          headers.push('Custom Field (Error)');
-        }
-      });
+      // Add custom field headers - with comprehensive error handling
+      if (customFields && customFields.length > 0) {
+        customFields.forEach((field, index) => {
+          try {
+            if (field && field.label && typeof field.label === 'string') {
+              headers.push(field.label);
+              console.log(`Added custom field header: ${field.label}`);
+            } else {
+              console.warn(`Invalid custom field at index ${index}:`, field);
+              headers.push(`Custom Field ${index + 1}`);
+            }
+          } catch (error) {
+            console.error(`Error adding custom field header at index ${index}:`, error.message);
+            headers.push(`Custom Field ${index + 1} (Error)`);
+          }
+        });
+      }
 
       // Note: Team information is handled in the separate Team Members sheet
 
-      // Add payment headers if needed
-      if (hasPaymentInfo || paymentRequired) {
-        headers.push('Payment Status', 'Payment Amount');
-        if (eventData.payment_qr_code || eventData.payment_upi_id) {
-          headers.push('Payment Link');
+      // Add payment headers if needed - with error handling
+      try {
+        if (hasPaymentInfo || paymentRequired) {
+          headers.push('Payment Status', 'Payment Amount');
+
+          // Check for payment QR code or UPI ID safely
+          try {
+            if (eventData.payment_qr_code || eventData.payment_upi_id) {
+              headers.push('Payment Link');
+            }
+          } catch (paymentLinkError) {
+            console.warn('Error checking payment link info:', paymentLinkError.message);
+          }
+
+          headers.push('Payment Screenshot');
+          console.log('Added payment headers to sheet');
         }
-        headers.push('Payment Screenshot');
+      } catch (error) {
+        console.warn('Error adding payment headers - continuing without payment columns:', error.message);
       }
 
       headers.push('Notes');
@@ -340,6 +453,20 @@ class SheetsService {
       // Build rows
       const rows = registrations.map((reg, index) => {
         try {
+          // Validate registration object
+          if (!reg || typeof reg !== 'object') {
+            console.error(`Invalid registration at index ${index}:`, reg);
+            throw new Error(`Registration ${index + 1} is not a valid object`);
+          }
+
+          if (!reg.participant_name || !reg.participant_email) {
+            console.error(`Registration ${index + 1} missing required fields:`, {
+              name: reg.participant_name,
+              email: reg.participant_email
+            });
+            throw new Error(`Registration ${index + 1} is missing required participant name or email`);
+          }
+
           console.log(`Processing registration ${index + 1}:`, reg.participant_name);
 
           const row = [
@@ -365,17 +492,30 @@ class SheetsService {
                 return;
               }
 
-              const customFieldValue = reg.additional_info?.custom_fields?.[field.id];
+              // Safely access custom field value
+              let customFieldValue;
+              try {
+                customFieldValue = reg.additional_info?.custom_fields?.[field.id];
+              } catch (accessError) {
+                console.warn(`Error accessing custom field ${field.id} for ${reg.participant_name}:`, accessError);
+                customFieldValue = undefined;
+              }
+
               let displayValue = 'N/A';
 
               console.log(`Processing custom field ${field.id} for ${reg.participant_name}:`, customFieldValue);
 
               if (customFieldValue !== undefined && customFieldValue !== null && customFieldValue !== '') {
-                if (Array.isArray(customFieldValue)) {
-                  // For checkbox fields that store arrays
-                  displayValue = customFieldValue.length > 0 ? customFieldValue.join(', ') : 'N/A';
-                } else {
-                  displayValue = String(customFieldValue);
+                try {
+                  if (Array.isArray(customFieldValue)) {
+                    // For checkbox fields that store arrays
+                    displayValue = customFieldValue.length > 0 ? customFieldValue.join(', ') : 'N/A';
+                  } else {
+                    displayValue = String(customFieldValue);
+                  }
+                } catch (conversionError) {
+                  console.warn(`Error converting custom field value for ${field.id}:`, conversionError);
+                  displayValue = 'N/A';
                 }
               }
 
@@ -388,19 +528,52 @@ class SheetsService {
 
           // Team information is handled in the separate Team Members sheet
 
-          // Add payment information
-          if (hasPaymentInfo || paymentRequired) {
-            row.push(
-              reg.payment_status ? reg.payment_status.charAt(0).toUpperCase() + reg.payment_status.slice(1) : 'Pending',
-              reg.payment_amount ? `₹${reg.payment_amount}` : (eventData.payment_amount ? `₹${eventData.payment_amount}` : 'N/A')
-            );
+          // Add payment information - with error handling
+          try {
+            if (hasPaymentInfo || paymentRequired) {
+              // Payment status
+              let paymentStatus = 'Pending';
+              try {
+                if (reg.payment_status) {
+                  paymentStatus = reg.payment_status.charAt(0).toUpperCase() + reg.payment_status.slice(1);
+                }
+              } catch (statusError) {
+                console.warn(`Error processing payment status for ${reg.participant_name}:`, statusError.message);
+              }
 
-            // Add payment link if event has payment info
-            if (eventData.payment_qr_code || eventData.payment_upi_id) {
-              row.push('Payment Link'); // We'll add the hyperlink later via batchUpdate
+              // Payment amount
+              let paymentAmount = 'N/A';
+              try {
+                if (reg.payment_amount) {
+                  paymentAmount = `₹${reg.payment_amount}`;
+                } else if (eventData.payment_amount) {
+                  paymentAmount = `₹${eventData.payment_amount}`;
+                }
+              } catch (amountError) {
+                console.warn(`Error processing payment amount for ${reg.participant_name}:`, amountError.message);
+              }
+
+              row.push(paymentStatus, paymentAmount);
+
+              // Add payment link if event has payment info
+              try {
+                if (eventData.payment_qr_code || eventData.payment_upi_id) {
+                  row.push('Payment Link'); // We'll add the hyperlink later via batchUpdate
+                }
+              } catch (linkError) {
+                console.warn(`Error processing payment link for ${reg.participant_name}:`, linkError.message);
+              }
+
+              // Payment screenshot
+              try {
+                row.push(reg.payment_screenshot_url || 'N/A');
+              } catch (screenshotError) {
+                console.warn(`Error processing payment screenshot for ${reg.participant_name}:`, screenshotError.message);
+                row.push('N/A');
+              }
             }
-
-            row.push(reg.payment_screenshot_url || 'N/A');
+          } catch (error) {
+            console.warn(`Error processing payment information for ${reg.participant_name}:`, error.message);
           }
 
           // Add notes column
