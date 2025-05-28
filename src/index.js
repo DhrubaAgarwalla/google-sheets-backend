@@ -26,16 +26,34 @@ app.use(helmet({
 }));
 
 // CORS configuration
-const allowedOrigins = process.env.ALLOWED_ORIGINS 
-  ? process.env.ALLOWED_ORIGINS.split(',')
-  : ['http://localhost:3000', 'http://localhost:5173'];
+const allowedOrigins = process.env.ALLOWED_ORIGINS;
 
-app.use(cors({
-  origin: allowedOrigins,
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-}));
+// Configure CORS based on environment
+let corsOptions;
+if (allowedOrigins === '*') {
+  // Allow all origins
+  corsOptions = {
+    origin: true,
+    credentials: false, // Set to false when allowing all origins for security
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  };
+} else {
+  // Use specific origins
+  const origins = allowedOrigins
+    ? allowedOrigins.split(',')
+    : ['http://localhost:3000', 'http://localhost:5173'];
+
+  corsOptions = {
+    origin: origins,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  };
+}
+
+console.log('CORS Configuration:', corsOptions);
+app.use(cors(corsOptions));
 
 // Rate limiting
 const limiter = rateLimit({
@@ -93,7 +111,7 @@ app.use('*', (req, res) => {
 // Global error handler
 app.use((err, req, res, next) => {
   console.error('Global error handler:', err);
-  
+
   res.status(err.status || 500).json({
     error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message,
     ...(process.env.NODE_ENV !== 'production' && { stack: err.stack })
