@@ -1,0 +1,43 @@
+{
+  "name": "event-manager-sheets-backend",
+  "version": "1.0.0",
+  "description": "Backend service for Google Sheets integration with Event Manager",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "build": "echo 'No build step required'",
+    "test": "node test-backend.js",
+    "test:health": "curl http://localhost:3001/api/v1/health",
+    "test:connection": "node test-connection.js",
+    "deploy:vercel": "vercel --prod",
+    "deploy:help": "bash deploy.sh",
+    "env:setup": "cp .env.example .env && echo 'Please edit .env with your credentials'"
+  },
+  "keywords": [
+    "google-sheets",
+    "event-management",
+    "api",
+    "backend"
+  ],
+  "author": "NIT Silchar Event Management",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "googleapis": "^128.0.0",
+    "helmet": "^7.1.0",
+    "joi": "^17.11.0",
+    "morgan": "^1.10.0",
+    "node-fetch": "^3.3.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
