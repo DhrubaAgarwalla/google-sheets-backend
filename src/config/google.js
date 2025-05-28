@@ -20,28 +20,57 @@ class GoogleConfig {
    */
   initializeAuth() {
     try {
-      // Build credentials object from environment variables
-      this.credentials = {
-        type: process.env.GOOGLE_CREDENTIALS_TYPE,
-        project_id: process.env.GOOGLE_CREDENTIALS_PROJECT_ID,
-        private_key_id: process.env.GOOGLE_CREDENTIALS_PRIVATE_KEY_ID,
-        private_key: process.env.GOOGLE_CREDENTIALS_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-        client_email: process.env.GOOGLE_CREDENTIALS_CLIENT_EMAIL,
-        client_id: process.env.GOOGLE_CREDENTIALS_CLIENT_ID,
-        auth_uri: process.env.GOOGLE_CREDENTIALS_AUTH_URI,
-        token_uri: process.env.GOOGLE_CREDENTIALS_TOKEN_URI,
-        auth_provider_x509_cert_url: process.env.GOOGLE_CREDENTIALS_AUTH_PROVIDER_CERT_URL,
-        client_x509_cert_url: process.env.GOOGLE_CREDENTIALS_CLIENT_CERT_URL
-      };
+      // Try to use JSON credentials first (easier for deployment)
+      if (process.env.GOOGLE_CREDENTIALS_JSON) {
+        try {
+          this.credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON);
+          console.log('📄 Using JSON credentials from environment');
+        } catch (jsonError) {
+          console.error('❌ Failed to parse JSON credentials:', jsonError.message);
+          throw new Error('Invalid JSON credentials format');
+        }
+      } else {
+        // Fallback to individual environment variables
+        console.log('🔧 Using individual environment variables for credentials');
+
+        // Handle private key formatting - common issue with environment variables
+        let privateKey = process.env.GOOGLE_CREDENTIALS_PRIVATE_KEY;
+        if (privateKey) {
+          // Replace literal \n with actual newlines
+          privateKey = privateKey.replace(/\\n/g, '\n');
+
+          // Ensure the key starts and ends with proper markers
+          if (!privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
+            console.warn('⚠️ Private key may be missing BEGIN marker');
+          }
+          if (!privateKey.includes('-----END PRIVATE KEY-----')) {
+            console.warn('⚠️ Private key may be missing END marker');
+          }
+        }
+
+        // Build credentials object from environment variables
+        this.credentials = {
+          type: process.env.GOOGLE_CREDENTIALS_TYPE,
+          project_id: process.env.GOOGLE_CREDENTIALS_PROJECT_ID,
+          private_key_id: process.env.GOOGLE_CREDENTIALS_PRIVATE_KEY_ID,
+          private_key: privateKey,
+          client_email: process.env.GOOGLE_CREDENTIALS_CLIENT_EMAIL,
+          client_id: process.env.GOOGLE_CREDENTIALS_CLIENT_ID,
+          auth_uri: process.env.GOOGLE_CREDENTIALS_AUTH_URI,
+          token_uri: process.env.GOOGLE_CREDENTIALS_TOKEN_URI,
+          auth_provider_x509_cert_url: process.env.GOOGLE_CREDENTIALS_AUTH_PROVIDER_CERT_URL,
+          client_x509_cert_url: process.env.GOOGLE_CREDENTIALS_CLIENT_CERT_URL
+        };
+      }
 
       // Validate required credentials
       const requiredFields = [
-        'type', 'project_id', 'private_key_id', 'private_key', 
+        'type', 'project_id', 'private_key_id', 'private_key',
         'client_email', 'client_id'
       ];
 
       const missingFields = requiredFields.filter(field => !this.credentials[field]);
-      
+
       if (missingFields.length > 0) {
         throw new Error(`Missing required Google credentials: ${missingFields.join(', ')}`);
       }
@@ -63,7 +92,9 @@ class GoogleConfig {
 
       console.log('✅ Google APIs initialized successfully');
       console.log(`📧 Service account: ${this.credentials.client_email}`);
-      
+      console.log(`🔑 Private key length: ${this.credentials.private_key?.length || 0} characters`);
+      console.log(`🔑 Private key starts with: ${this.credentials.private_key?.substring(0, 50)}...`);
+
     } catch (error) {
       console.error('❌ Failed to initialize Google APIs:', error.message);
       throw new Error(`Google API initialization failed: ${error.message}`);
