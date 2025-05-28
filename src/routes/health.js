@@ -86,13 +86,15 @@ router.get('/detailed', async (req, res) => {
     try {
       await googleConfig.testAuthentication();
       systemInfo.services.googleAuth = 'healthy';
-      
+
       // Test Sheets API
       try {
         const sheets = googleConfig.getSheetsClient();
         systemInfo.services.googleSheets = 'healthy';
       } catch (error) {
+        console.error('Google Sheets API error:', error.message);
         systemInfo.services.googleSheets = 'unhealthy';
+        systemInfo.services.googleSheetsError = error.message;
       }
 
       // Test Drive API
@@ -100,10 +102,13 @@ router.get('/detailed', async (req, res) => {
         const drive = googleConfig.getDriveClient();
         systemInfo.services.googleDrive = 'healthy';
       } catch (error) {
+        console.error('Google Drive API error:', error.message);
         systemInfo.services.googleDrive = 'unhealthy';
+        systemInfo.services.googleDriveError = error.message;
       }
 
     } catch (error) {
+      console.error('Google authentication error:', error.message);
       systemInfo.services.googleAuth = 'unhealthy';
       systemInfo.services.googleSheets = 'unhealthy';
       systemInfo.services.googleDrive = 'unhealthy';
