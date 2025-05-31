@@ -403,7 +403,9 @@ class SheetsService {
         'Department',
         'Year',
         'Registration Type',
-        'Status',
+        'Registration Status',
+        'Attendance Status',
+        'Attendance Time',
         'Registration Date'
       ];
 
@@ -469,6 +471,16 @@ class SheetsService {
 
           console.log(`Processing registration ${index + 1}:`, reg.participant_name);
 
+          // Format attendance timestamp
+          let attendanceTime = 'N/A';
+          if (reg.attendance_timestamp) {
+            try {
+              attendanceTime = new Date(reg.attendance_timestamp).toLocaleString('en-IN');
+            } catch (e) {
+              console.warn(`Error formatting attendance timestamp for ${reg.participant_name}:`, e);
+            }
+          }
+
           const row = [
             index + 1,
             reg.participant_name || 'N/A',
@@ -479,6 +491,8 @@ class SheetsService {
             reg.participant_year || reg.additional_info?.year || 'N/A',
             reg.registration_type || 'Individual',
             reg.status === 'registered' ? 'Confirmed' : (reg.status || 'Confirmed'),
+            reg.attendance_status === 'attended' ? 'Attended' : 'Not Attended',
+            attendanceTime,
             reg.created_at ? new Date(reg.created_at).toLocaleString('en-IN') : 'N/A'
           ];
 
@@ -797,8 +811,10 @@ class SheetsService {
       { index: 5, width: 150 },  // Department
       { index: 6, width: 80 },   // Year
       { index: 7, width: 120 },  // Type
-      { index: 8, width: 100 },  // Status
-      { index: 9, width: 180 }   // Registration Date
+      { index: 8, width: 130 },  // Registration Status
+      { index: 9, width: 130 },  // Attendance Status
+      { index: 10, width: 180 }, // Attendance Time
+      { index: 11, width: 180 }  // Registration Date
     ];
 
     columnWidths.forEach(({ index, width }) => {
@@ -820,8 +836,8 @@ class SheetsService {
       }
     });
 
-    // Center align specific columns (S.No., Student ID, Year, Type, Status) for data rows only
-    const centerAlignColumns = [0, 4, 6, 7, 8];
+    // Center align specific columns (S.No., Student ID, Year, Type, Registration Status, Attendance Status) for data rows only
+    const centerAlignColumns = [0, 4, 6, 7, 8, 9];
     centerAlignColumns.forEach(colIndex => {
       if (colIndex < columnCount) {
         requests.push({
@@ -964,6 +980,11 @@ class SheetsService {
     const departmentCounts = {};
     const yearCounts = {};
 
+    // Calculate attendance statistics
+    const attendedCount = registrations.filter(reg => reg.attendance_status === 'attended').length;
+    const notAttendedCount = totalRegistrations - attendedCount;
+    const attendanceRate = totalRegistrations > 0 ? ((attendedCount / totalRegistrations) * 100).toFixed(1) : '0.0';
+
     registrations.forEach(reg => {
       // Count departments
       const dept = reg.additional_info?.department || 'Unknown';
@@ -999,6 +1020,12 @@ class SheetsService {
       ['Total Participants', totalParticipants],
       ['Total Registrations', totalRegistrations],
       ['Total Team Members', totalTeamMembers],
+      [], // Empty row
+      ['ATTENDANCE SUMMARY'], // Section header
+      [], // Empty row
+      ['Total Attended', attendedCount],
+      ['Not Attended', notAttendedCount],
+      ['Attendance Rate', `${attendanceRate}%`],
       [], // Empty row
       ['DEPARTMENT DISTRIBUTION'], // Section header
       [], // Empty row
