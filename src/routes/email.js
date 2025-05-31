@@ -369,6 +369,10 @@ function generateQRCodeEmailHTML(data) {
         .qr-section { text-align: center; background: #f8f9fa; border-radius: 8px; padding: 30px; margin: 30px 0; }
         .qr-code { max-width: 200px; height: auto; border: 3px solid #007bff; border-radius: 8px; padding: 10px; background: white; }
         .event-details { background: #e3f2fd; border-left: 4px solid #007bff; padding: 20px; margin: 20px 0; border-radius: 0 8px 8px 0; }
+        .instructions { background: #f8f9fa; border-radius: 8px; padding: 20px; margin: 20px 0; border: 1px solid #dee2e6; }
+        .instructions h4 { color: #007bff; margin-top: 0; }
+        .instructions ul { margin: 15px 0; padding-left: 20px; }
+        .instructions li { margin: 8px 0; color: #555; }
         .footer { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #dee2e6; color: #666; font-size: 14px; }
     </style>
 </head>
@@ -393,6 +397,20 @@ function generateQRCodeEmailHTML(data) {
             <img src="cid:qr_code_image" alt="Event QR Code" class="qr-code">
             <p><small>Save this image to your phone for easy access</small></p>
         </div>
+
+        <div class="instructions">
+            <h4>📋 Important Instructions</h4>
+            <ul>
+                <li><strong>Save this email</strong> or download the QR code image to your phone</li>
+                <li><strong>Arrive on time</strong> - QR codes will be scanned at the event entrance</li>
+                <li><strong>Bring a backup</strong> - You can also show your registration ID if needed</li>
+                <li><strong>Contact support</strong> if you face any issues with your QR code</li>
+                <li><strong>QR code is valid until the event date</strong> - keep it safe!</li>
+            </ul>
+        </div>
+
+        <p>We're excited to see you at the event! If you have any questions or need assistance, please don't hesitate to contact the event organizers.</p>
+
         <div class="footer">
             <p><strong>NIT Silchar Event Management System</strong></p>
             <p>This is an automated email. Please do not reply to this message.</p>
