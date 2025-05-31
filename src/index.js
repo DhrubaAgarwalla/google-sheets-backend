@@ -10,6 +10,7 @@ import { dirname, join } from 'path';
 // Import routes
 import sheetsRoutes from './routes/sheets.js';
 import healthRoutes from './routes/health.js';
+import emailRoutes from './routes/email.js';
 
 // Load environment variables
 dotenv.config();
@@ -82,6 +83,7 @@ const apiPrefix = process.env.API_PREFIX || '/api/v1';
 // Routes
 app.use(`${apiPrefix}/health`, healthRoutes);
 app.use(`${apiPrefix}/sheets`, sheetsRoutes);
+app.use(`${apiPrefix}`, emailRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -91,7 +93,8 @@ app.get('/', (req, res) => {
     status: 'running',
     endpoints: {
       health: `${apiPrefix}/health`,
-      sheets: `${apiPrefix}/sheets`
+      sheets: `${apiPrefix}/sheets`,
+      email: `${apiPrefix}/send-email`
     }
   });
 });
@@ -103,7 +106,8 @@ app.use('*', (req, res) => {
     message: `The requested endpoint ${req.originalUrl} does not exist.`,
     availableEndpoints: {
       health: `${apiPrefix}/health`,
-      sheets: `${apiPrefix}/sheets`
+      sheets: `${apiPrefix}/sheets`,
+      email: `${apiPrefix}/send-email`
     }
   });
 });
@@ -123,7 +127,14 @@ app.listen(PORT, () => {
   console.log(`🚀 Event Manager Sheets Backend running on port ${PORT}`);
   console.log(`📊 API endpoints available at: http://localhost:${PORT}${apiPrefix}`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔒 CORS enabled for origins: ${allowedOrigins.join(', ')}`);
+
+  // Fix CORS origins display
+  const originsDisplay = allowedOrigins === '*'
+    ? 'All origins (*)'
+    : allowedOrigins
+      ? allowedOrigins
+      : 'http://localhost:3000, http://localhost:5173';
+  console.log(`🔒 CORS enabled for origins: ${originsDisplay}`);
 });
 
 export default app;

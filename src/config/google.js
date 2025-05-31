@@ -82,7 +82,8 @@ class GoogleConfig {
         this.credentials.private_key,
         [
           'https://www.googleapis.com/auth/spreadsheets',
-          'https://www.googleapis.com/auth/drive.file'
+          'https://www.googleapis.com/auth/drive.file',
+          'https://www.googleapis.com/auth/gmail.send'
         ]
       );
 
@@ -140,6 +141,23 @@ class GoogleConfig {
    */
   getServiceAccountEmail() {
     return this.credentials?.client_email;
+  }
+
+  /**
+   * Get the authenticated client for email services
+   */
+  getAuth() {
+    if (!this.auth) {
+      throw new Error('Google authentication not initialized');
+    }
+    return this.auth;
+  }
+
+  /**
+   * Get credentials object
+   */
+  getCredentials() {
+    return this.credentials;
   }
 }
 
