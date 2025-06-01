@@ -170,8 +170,8 @@ router.post('/create', async (req, res) => {
 
     console.log(`✅ Validation passed. Creating sheet for event: ${eventData.title} with ${registrations.length} registrations (auto-create: ${autoCreate})`);
 
-    // Create the Google Sheet
-    const result = await sheetsService.createEventSheet(eventData, registrations);
+    // Create the Google Sheet with auto-create flag
+    const result = await sheetsService.createEventSheet(eventData, registrations, autoCreate);
 
     res.status(201).json({
       success: true,

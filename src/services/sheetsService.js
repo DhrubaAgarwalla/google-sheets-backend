@@ -18,9 +18,9 @@ class SheetsService {
   /**
    * Create a new Google Sheet with event registration data
    */
-  async createEventSheet(eventData, registrations) {
+  async createEventSheet(eventData, registrations, isAutoCreate = false) {
     try {
-      console.log(`Creating Google Sheet for event: ${eventData.title}`);
+      console.log(`Creating Google Sheet for event: ${eventData.title} (auto-create: ${isAutoCreate})`);
 
       // Validate input data
       if (!eventData) {
@@ -32,7 +32,9 @@ class SheetsService {
       if (!registrations || !Array.isArray(registrations)) {
         throw new Error('Registrations must be provided as an array');
       }
-      if (registrations.length === 0) {
+
+      // Allow empty registrations for auto-creation mode
+      if (registrations.length === 0 && !isAutoCreate) {
         throw new Error('Cannot create sheet with no registrations');
       }
 
@@ -317,9 +319,46 @@ class SheetsService {
         throw new Error('Registrations must be an array');
       }
 
+      // For auto-creation mode, allow empty registrations
       if (registrations.length === 0) {
-        console.error('No registrations provided');
-        throw new Error('At least one registration is required');
+        console.log('No registrations provided - creating empty sheet structure');
+
+        // Return basic headers for empty sheet
+        const headers = [
+          'S.No.',
+          'Name',
+          'Email',
+          'Phone',
+          'Student ID',
+          'Department',
+          'Year',
+          'Registration Type',
+          'Registration Status',
+          'Attendance Status',
+          'Attendance Time',
+          'Registration Date'
+        ];
+
+        // Add custom field headers if available
+        if (eventData.custom_fields && Array.isArray(eventData.custom_fields)) {
+          eventData.custom_fields.forEach(field => {
+            if (field && field.label) {
+              headers.push(field.label);
+            }
+          });
+        }
+
+        // Add payment headers if payment is required
+        if (eventData.payment_required || eventData.requires_payment) {
+          headers.push('Payment Verified', 'Payment Amount', 'Payment Screenshot');
+        }
+
+        headers.push('Notes');
+
+        return {
+          headers,
+          rows: [] // Empty rows for auto-creation
+        };
       }
 
       // Extract custom fields from event data - ensure it's an array and validate structure
