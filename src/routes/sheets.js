@@ -4,44 +4,53 @@ import sheetsService from '../services/sheetsService.js';
 
 const router = express.Router();
 
-// Validation schemas
+// Validation schemas - Made more flexible to handle real-world data
 const createSheetSchema = Joi.object({
   eventData: Joi.object({
     id: Joi.alternatives().try(Joi.string(), Joi.number()).required(),
     title: Joi.string().required(),
+    // Make custom_fields more flexible
     custom_fields: Joi.array().items(Joi.object({
       id: Joi.string().required(),
       label: Joi.string().required(),
       type: Joi.string().required()
-    })).default([])
-  }).required(),
+    }).unknown(true)).optional().default([]),
+    // Add payment-related fields
+    requires_payment: Joi.boolean().optional(),
+    payment_required: Joi.boolean().optional(),
+    payment_amount: Joi.alternatives().try(Joi.number(), Joi.string()).optional().allow(null, '')
+  }).unknown(true).required(),
   registrations: Joi.array().items(Joi.object({
     // Required fields
     participant_name: Joi.string().required(),
     participant_email: Joi.string().email().required(),
 
-    // Optional fields from frontend
-    id: Joi.string().allow(''),
-    participant_id: Joi.string().allow(''),
-    participant_phone: Joi.string().allow(''),
-    participant_student_id: Joi.string().allow(''),
-    participant_department: Joi.string().allow(''),
-    participant_year: Joi.string().allow(''),
-    registration_type: Joi.string().default('Individual'),
-    status: Joi.string().default('Confirmed'),
-    created_at: Joi.string().allow(''),
-    registration_date: Joi.string().allow(''),
-    updated_at: Joi.string().allow(''),
-    event_id: Joi.string().allow(''),
+    // Optional fields from frontend - made more flexible
+    id: Joi.alternatives().try(Joi.string(), Joi.number()).optional().allow('', null),
+    participant_id: Joi.string().optional().allow('', null),
+    participant_phone: Joi.string().optional().allow('', null),
+    participant_student_id: Joi.string().optional().allow('', null),
+    participant_department: Joi.string().optional().allow('', null),
+    participant_year: Joi.alternatives().try(Joi.string(), Joi.number()).optional().allow('', null),
+    registration_type: Joi.string().optional().default('Individual'),
+    status: Joi.string().optional().default('Confirmed'),
+    created_at: Joi.alternatives().try(Joi.string(), Joi.date()).optional().allow('', null),
+    registration_date: Joi.alternatives().try(Joi.string(), Joi.date()).optional().allow('', null),
+    updated_at: Joi.alternatives().try(Joi.string(), Joi.date()).optional().allow('', null),
+    event_id: Joi.alternatives().try(Joi.string(), Joi.number()).optional().allow('', null),
 
-    // Complex objects
-    additional_info: Joi.object().allow(null),
-    custom_fields: Joi.object().allow(null),
+    // Complex objects - made more flexible
+    additional_info: Joi.object().optional().allow(null),
+    custom_fields: Joi.object().optional().allow(null),
 
-    // Payment fields
-    payment_status: Joi.string().allow(''),
-    payment_amount: Joi.number().allow(null),
-    payment_screenshot_url: Joi.string().allow('')
+    // Payment fields - made more flexible
+    payment_status: Joi.string().optional().allow('', null),
+    payment_amount: Joi.alternatives().try(Joi.number(), Joi.string()).optional().allow(null, ''),
+    payment_screenshot_url: Joi.string().optional().allow('', null),
+
+    // Attendance fields
+    attendance_status: Joi.string().optional().allow('', null),
+    attendance_timestamp: Joi.alternatives().try(Joi.string(), Joi.date()).optional().allow('', null)
   }).unknown(true)).required()
 });
 
@@ -53,35 +62,43 @@ const updateSheetSchema = Joi.object({
       id: Joi.string().required(),
       label: Joi.string().required(),
       type: Joi.string().required()
-    })).default([])
-  }).required(),
+    }).unknown(true)).optional().default([]),
+    // Add payment-related fields
+    requires_payment: Joi.boolean().optional(),
+    payment_required: Joi.boolean().optional(),
+    payment_amount: Joi.alternatives().try(Joi.number(), Joi.string()).optional().allow(null, '')
+  }).unknown(true).required(),
   registrations: Joi.array().items(Joi.object({
     // Required fields
     participant_name: Joi.string().required(),
     participant_email: Joi.string().email().required(),
 
-    // Optional fields from frontend
-    id: Joi.string().allow(''),
-    participant_id: Joi.string().allow(''),
-    participant_phone: Joi.string().allow(''),
-    participant_student_id: Joi.string().allow(''),
-    participant_department: Joi.string().allow(''),
-    participant_year: Joi.string().allow(''),
-    registration_type: Joi.string().default('Individual'),
-    status: Joi.string().default('Confirmed'),
-    created_at: Joi.string().allow(''),
-    registration_date: Joi.string().allow(''),
-    updated_at: Joi.string().allow(''),
-    event_id: Joi.string().allow(''),
+    // Optional fields from frontend - made more flexible
+    id: Joi.alternatives().try(Joi.string(), Joi.number()).optional().allow('', null),
+    participant_id: Joi.string().optional().allow('', null),
+    participant_phone: Joi.string().optional().allow('', null),
+    participant_student_id: Joi.string().optional().allow('', null),
+    participant_department: Joi.string().optional().allow('', null),
+    participant_year: Joi.alternatives().try(Joi.string(), Joi.number()).optional().allow('', null),
+    registration_type: Joi.string().optional().default('Individual'),
+    status: Joi.string().optional().default('Confirmed'),
+    created_at: Joi.alternatives().try(Joi.string(), Joi.date()).optional().allow('', null),
+    registration_date: Joi.alternatives().try(Joi.string(), Joi.date()).optional().allow('', null),
+    updated_at: Joi.alternatives().try(Joi.string(), Joi.date()).optional().allow('', null),
+    event_id: Joi.alternatives().try(Joi.string(), Joi.number()).optional().allow('', null),
 
-    // Complex objects
-    additional_info: Joi.object().allow(null),
-    custom_fields: Joi.object().allow(null),
+    // Complex objects - made more flexible
+    additional_info: Joi.object().optional().allow(null),
+    custom_fields: Joi.object().optional().allow(null),
 
-    // Payment fields
-    payment_status: Joi.string().allow(''),
-    payment_amount: Joi.number().allow(null),
-    payment_screenshot_url: Joi.string().allow('')
+    // Payment fields - made more flexible
+    payment_status: Joi.string().optional().allow('', null),
+    payment_amount: Joi.alternatives().try(Joi.number(), Joi.string()).optional().allow(null, ''),
+    payment_screenshot_url: Joi.string().optional().allow('', null),
+
+    // Attendance fields
+    attendance_status: Joi.string().optional().allow('', null),
+    attendance_timestamp: Joi.alternatives().try(Joi.string(), Joi.date()).optional().allow('', null)
   }).unknown(true)).required()
 });
 
@@ -91,13 +108,35 @@ const updateSheetSchema = Joi.object({
  */
 router.post('/create', async (req, res) => {
   try {
-    // Validate request body
-    const { error, value } = createSheetSchema.validate(req.body);
+    // Log incoming request for debugging
+    console.log('📊 Incoming Google Sheets create request:');
+    console.log('Event Data:', JSON.stringify(req.body.eventData, null, 2));
+    console.log('Registrations count:', req.body.registrations?.length || 0);
+    if (req.body.registrations?.length > 0) {
+      console.log('Sample registration:', JSON.stringify(req.body.registrations[0], null, 2));
+    }
+
+    // Validate request body with detailed error reporting
+    const { error, value } = createSheetSchema.validate(req.body, {
+      abortEarly: false, // Get all validation errors
+      allowUnknown: true, // Allow unknown properties
+      stripUnknown: false // Keep unknown properties for debugging
+    });
+
     if (error) {
+      console.error('❌ Validation failed:', error.details);
       return res.status(400).json({
         success: false,
         error: 'Validation error',
-        details: error.details.map(detail => detail.message)
+        details: error.details.map(detail => ({
+          message: detail.message,
+          path: detail.path,
+          value: detail.context?.value
+        })),
+        receivedData: {
+          eventDataKeys: Object.keys(req.body.eventData || {}),
+          registrationSample: req.body.registrations?.[0] ? Object.keys(req.body.registrations[0]) : []
+        }
       });
     }
 
@@ -112,7 +151,7 @@ router.post('/create', async (req, res) => {
       });
     }
 
-    console.log(`Creating sheet for event: ${eventData.title} with ${registrations.length} registrations`);
+    console.log(`✅ Validation passed. Creating sheet for event: ${eventData.title} with ${registrations.length} registrations`);
 
     // Create the Google Sheet
     const result = await sheetsService.createEventSheet(eventData, registrations);
@@ -124,7 +163,7 @@ router.post('/create', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error in create sheet endpoint:', error);
+    console.error('❌ Error in create sheet endpoint:', error);
 
     // Determine appropriate HTTP status code and provide detailed error information
     let statusCode = 500;
