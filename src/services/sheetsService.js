@@ -429,22 +429,11 @@ class SheetsService {
 
       // Note: Team information is handled in the separate Team Members sheet
 
-      // Add payment headers if needed - with error handling
+      // Add payment headers if needed - simplified as requested
       try {
         if (hasPaymentInfo || paymentRequired) {
-          headers.push('Payment Status', 'Payment Amount');
-
-          // Check for payment QR code or UPI ID safely
-          try {
-            if (eventData.payment_qr_code || eventData.payment_upi_id) {
-              headers.push('Payment Link');
-            }
-          } catch (paymentLinkError) {
-            console.warn('Error checking payment link info:', paymentLinkError.message);
-          }
-
-          headers.push('Payment Screenshot');
-          console.log('Added payment headers to sheet');
+          headers.push('Payment Verified', 'Payment Amount', 'Payment Screenshot');
+          console.log('Added simplified payment headers to sheet');
         }
       } catch (error) {
         console.warn('Error adding payment headers - continuing without payment columns:', error.message);
@@ -517,7 +506,7 @@ class SheetsService {
 
               let displayValue = 'N/A';
 
-              console.log(`Processing custom field ${field.id} for ${reg.participant_name}:`, customFieldValue);
+              console.log(`Processing custom field ${field.id} (${field.label}) for ${reg.participant_name}:`, customFieldValue, 'Type:', typeof customFieldValue);
 
               if (customFieldValue !== undefined && customFieldValue !== null && customFieldValue !== '') {
                 try {
@@ -542,17 +531,17 @@ class SheetsService {
 
           // Team information is handled in the separate Team Members sheet
 
-          // Add payment information - with error handling
+          // Add simplified payment information - with error handling
           try {
             if (hasPaymentInfo || paymentRequired) {
-              // Payment status
-              let paymentStatus = 'Pending';
+              // Payment verification status (Yes/No instead of Verified/Pending)
+              let paymentVerified = 'No';
               try {
-                if (reg.payment_status) {
-                  paymentStatus = reg.payment_status.charAt(0).toUpperCase() + reg.payment_status.slice(1);
+                if (reg.payment_status === 'verified') {
+                  paymentVerified = 'Yes';
                 }
               } catch (statusError) {
-                console.warn(`Error processing payment status for ${reg.participant_name}:`, statusError.message);
+                console.warn(`Error processing payment verification for ${reg.participant_name}:`, statusError.message);
               }
 
               // Payment amount
@@ -567,24 +556,17 @@ class SheetsService {
                 console.warn(`Error processing payment amount for ${reg.participant_name}:`, amountError.message);
               }
 
-              row.push(paymentStatus, paymentAmount);
-
-              // Add payment link if event has payment info
+              // Payment screenshot - store URL for hyperlink processing later
+              let paymentScreenshot = 'N/A';
               try {
-                if (eventData.payment_qr_code || eventData.payment_upi_id) {
-                  row.push('Payment Link'); // We'll add the hyperlink later via batchUpdate
+                if (reg.payment_screenshot_url && reg.payment_screenshot_url !== 'N/A') {
+                  paymentScreenshot = reg.payment_screenshot_url; // Store URL for hyperlink processing
                 }
-              } catch (linkError) {
-                console.warn(`Error processing payment link for ${reg.participant_name}:`, linkError.message);
-              }
-
-              // Payment screenshot
-              try {
-                row.push(reg.payment_screenshot_url || 'N/A');
               } catch (screenshotError) {
                 console.warn(`Error processing payment screenshot for ${reg.participant_name}:`, screenshotError.message);
-                row.push('N/A');
               }
+
+              row.push(paymentVerified, paymentAmount, paymentScreenshot);
             }
           } catch (error) {
             console.warn(`Error processing payment information for ${reg.participant_name}:`, error.message);
@@ -613,13 +595,9 @@ class SheetsService {
           // Add empty values for custom fields
           customFields.forEach(() => errorRow.push('ERROR'));
 
-          // Add empty values for payment fields if needed
+          // Add empty values for simplified payment fields if needed
           if (hasPaymentInfo || paymentRequired) {
-            errorRow.push('ERROR', 'ERROR');
-            if (eventData.payment_qr_code || eventData.payment_upi_id) {
-              errorRow.push('ERROR');
-            }
-            errorRow.push('ERROR');
+            errorRow.push('ERROR', 'ERROR', 'ERROR'); // Payment Verified, Payment Amount, Payment Screenshot
           }
 
           errorRow.push('Processing Error');
@@ -1184,34 +1162,34 @@ class SheetsService {
       });
     }
 
-    // Add hyperlinks for payment links if event has payment info
-    // Handle both property names for backward compatibility
+    // Add hyperlinks for payment screenshots (simplified structure)
     const paymentRequired = eventData.payment_required || eventData.requires_payment || false;
-    if ((eventData.payment_qr_code || eventData.payment_upi_id) && paymentRequired) {
-      const paymentLink = eventData.payment_qr_code || `upi://pay?pa=${eventData.payment_upi_id}`;
-      const paymentLinkColumnIndex = sheetData.headers.indexOf('Payment Link');
+    const paymentScreenshotColumnIndex = sheetData.headers.indexOf('Payment Screenshot');
 
-      if (paymentLinkColumnIndex !== -1) {
-        // Add hyperlinks for each registration row
-        for (let i = 0; i < registrations.length; i++) {
-          const rowIndex = i + 3; // Start from row 4 (index 3) after title, empty row, and header
+    if (paymentScreenshotColumnIndex !== -1 && paymentRequired) {
+      for (let i = 0; i < registrations.length; i++) {
+        const reg = registrations[i];
+        const rowIndex = i + 3; // Start from row 4 (index 3) after title, empty row, and header
+
+        // Only add hyperlink if there's a valid payment screenshot URL
+        if (reg.payment_screenshot_url && reg.payment_screenshot_url !== 'N/A' && reg.payment_screenshot_url.startsWith('http')) {
           requests.push({
             updateCells: {
               range: {
                 sheetId: sheetId,
                 startRowIndex: rowIndex,
                 endRowIndex: rowIndex + 1,
-                startColumnIndex: paymentLinkColumnIndex,
-                endColumnIndex: paymentLinkColumnIndex + 1
+                startColumnIndex: paymentScreenshotColumnIndex,
+                endColumnIndex: paymentScreenshotColumnIndex + 1
               },
               rows: [{
                 values: [{
                   userEnteredValue: {
-                    formulaValue: `=HYPERLINK("${paymentLink}", "Payment Link")`
+                    formulaValue: `=HYPERLINK("${reg.payment_screenshot_url}", "View Payment")`
                   },
                   userEnteredFormat: {
                     textFormat: {
-                      foregroundColor: { red: 0.0, green: 0.0, blue: 1.0 }, // Blue color for links
+                      foregroundColor: { red: 0.0, green: 0.6, blue: 0.0 }, // Green color for payment links
                       underline: true
                     }
                   }
