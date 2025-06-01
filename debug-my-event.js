@@ -5,30 +5,43 @@
 
 import { diagnoseEvent } from './diagnose-event.js';
 
-// Update your test data to match the problematic event structure
+// YOUR ACTUAL EVENT DATA (based on the screenshots)
 const yourEventData = {
   id: 'custom-check-event',
   title: 'custom check',
   custom_fields: [
-    { id: 'choose_field', label: 'choose', type: 'checkbox' },
-    // Add other custom fields that are causing issues
+    // This is likely where the issue is - we need to find the actual custom field definition
+    { id: 'choose_field', label: 'choose', type: 'text' }
   ],
   requires_payment: true,
   payment_amount: 122,
+  // Add other event properties as needed
 };
 
-// Add a sample registration with the problematic custom field data
-const sampleRegistration = {
-  participant_name: "Test User",
-  participant_email: "test@example.com",
-  participant_phone: "1234567890",
-  additional_info: {
-    custom_fields: {
-      choose_field: ["Option 1", "Option 2"] // For checkbox type
-      // Add other custom field values
-    }
+// YOUR ACTUAL REGISTRATION DATA (based on the screenshots)
+const yourRegistrations = [
+  {
+    participant_name: 'Prachi Agarwalla',
+    participant_email: 'demo@example.com',
+    participant_phone: '+919864375371',
+    participant_student_id: '2411100',
+    participant_department: 'ECE',
+    participant_year: '1',
+    registration_type: 'Individual',
+    status: 'Registered',
+    created_at: '2025-05-28T03:54:00.000Z', // May 28, 2025 3:54 AM
+    additional_info: {
+      department: 'ECE',
+      year: '1',
+      custom_fields: {
+        choose_field: '123, 456' // This is the custom field value from your screenshot
+      }
+    },
+    payment_status: 'verified',
+    payment_amount: 122,
+    payment_screenshot_url: 'some-screenshot-url'
   }
-};
+];
 
 // Run the diagnostic
 async function debugMyEvent() {
@@ -46,5 +59,3 @@ async function debugMyEvent() {
 debugMyEvent().catch(error => {
   console.error('❌ Diagnostic failed:', error);
 });
-
-

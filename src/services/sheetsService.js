@@ -1556,4 +1556,3 @@ class SheetsService {
 }
 
 export default new SheetsService();
-
