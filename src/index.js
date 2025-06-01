@@ -37,19 +37,33 @@ if (allowedOrigins === '*') {
     origin: true,
     credentials: false, // Set to false when allowing all origins for security
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+    preflightContinue: false,
+    optionsSuccessStatus: 200
   };
 } else {
   // Use specific origins
   const origins = allowedOrigins
-    ? allowedOrigins.split(',')
+    ? allowedOrigins.split(',').map(origin => origin.trim())
     : ['http://localhost:3000', 'http://localhost:5173'];
 
   corsOptions = {
-    origin: origins,
-    credentials: true,
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+
+      if (origins.includes(origin)) {
+        callback(null, true);
+      } else {
+        console.log(`❌ CORS blocked origin: ${origin}`);
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    credentials: false, // Set to false for cross-origin requests
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+    preflightContinue: false,
+    optionsSuccessStatus: 200
   };
 }
 
