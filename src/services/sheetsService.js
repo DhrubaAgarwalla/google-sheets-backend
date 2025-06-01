@@ -138,7 +138,7 @@ class SheetsService {
 
       // Populate sheets - continue even if some fail
       try {
-        await this.populateRegistrationsSheet(spreadsheetId, eventData, registrations);
+        await this.populateRegistrationsSheet(spreadsheetId, eventData, registrations, isAutoCreate);
         console.log('Successfully populated registrations sheet');
       } catch (error) {
         console.error('Failed to populate registrations sheet:', error.message);
@@ -169,7 +169,15 @@ class SheetsService {
         console.log('Successfully formatted registrations sheet');
       } catch (error) {
         console.error('Failed to format registrations sheet:', error.message);
-        // Continue anyway
+        // For auto-created sheets, try basic formatting as fallback
+        if (isAutoCreate && registrations.length === 0) {
+          try {
+            console.log('Applying fallback formatting for auto-created sheet');
+            await this.formatEmptyAutoCreatedSheet(spreadsheetId, registrationsSheetId, this.prepareSheetData(eventData, registrations).headers.length);
+          } catch (fallbackError) {
+            console.error('Fallback formatting also failed:', fallbackError.message);
+          }
+        }
       }
 
       if (hasTeamRegistrations) {
@@ -901,7 +909,7 @@ class SheetsService {
   /**
    * Populate the Registrations sheet
    */
-  async populateRegistrationsSheet(spreadsheetId, eventData, registrations) {
+  async populateRegistrationsSheet(spreadsheetId, eventData, registrations, isAutoCreate = false) {
     const sheetData = this.prepareSheetData(eventData, registrations);
 
     const allData = [
@@ -918,6 +926,139 @@ class SheetsService {
       resource: {
         values: allData
       }
+    });
+
+    // Note: Formatting is handled in the main createEventSheet method
+  }
+
+  /**
+   * Format empty auto-created sheet with basic styling
+   */
+  async formatEmptyAutoCreatedSheet(spreadsheetId, sheetId, columnCount) {
+    const requests = [
+      // Freeze header row (row 3, which is index 2)
+      {
+        updateSheetProperties: {
+          properties: {
+            sheetId: sheetId,
+            gridProperties: {
+              frozenRowCount: 3
+            }
+          },
+          fields: 'gridProperties.frozenRowCount'
+        }
+      },
+      // Format title row
+      {
+        repeatCell: {
+          range: {
+            sheetId: sheetId,
+            startRowIndex: 0,
+            endRowIndex: 1,
+            startColumnIndex: 0,
+            endColumnIndex: columnCount
+          },
+          cell: {
+            userEnteredFormat: {
+              backgroundColor: { red: 0.267, green: 0.447, blue: 0.769 }, // #4472C4
+              textFormat: {
+                foregroundColor: { red: 1, green: 1, blue: 1 },
+                bold: true,
+                fontFamily: 'Arial',
+                fontSize: 16
+              },
+              horizontalAlignment: 'CENTER',
+              verticalAlignment: 'MIDDLE'
+            }
+          },
+          fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment)'
+        }
+      },
+      // Merge title row
+      {
+        mergeCells: {
+          range: {
+            sheetId: sheetId,
+            startRowIndex: 0,
+            endRowIndex: 1,
+            startColumnIndex: 0,
+            endColumnIndex: columnCount
+          },
+          mergeType: 'MERGE_ALL'
+        }
+      },
+      // Format header row
+      {
+        repeatCell: {
+          range: {
+            sheetId: sheetId,
+            startRowIndex: 2,
+            endRowIndex: 3,
+            startColumnIndex: 0,
+            endColumnIndex: columnCount
+          },
+          cell: {
+            userEnteredFormat: {
+              backgroundColor: { red: 0.357, green: 0.608, blue: 0.835 }, // #5B9BD5
+              textFormat: {
+                foregroundColor: { red: 1, green: 1, blue: 1 },
+                bold: true,
+                fontFamily: 'Arial',
+                fontSize: 11
+              },
+              horizontalAlignment: 'CENTER',
+              verticalAlignment: 'MIDDLE',
+              borders: {
+                top: { style: 'SOLID', width: 1, color: { red: 0, green: 0, blue: 0 } },
+                bottom: { style: 'SOLID', width: 1, color: { red: 0, green: 0, blue: 0 } },
+                left: { style: 'SOLID', width: 1, color: { red: 0, green: 0, blue: 0 } },
+                right: { style: 'SOLID', width: 1, color: { red: 0, green: 0, blue: 0 } }
+              }
+            }
+          },
+          fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,borders)'
+        }
+      }
+    ];
+
+    // Set column widths
+    const columnWidths = [
+      { index: 0, width: 80 },   // S.No.
+      { index: 1, width: 200 },  // Name
+      { index: 2, width: 250 },  // Email
+      { index: 3, width: 150 },  // Phone
+      { index: 4, width: 120 },  // Student ID
+      { index: 5, width: 150 },  // Department
+      { index: 6, width: 80 },   // Year
+      { index: 7, width: 120 },  // Type
+      { index: 8, width: 130 },  // Registration Status
+      { index: 9, width: 130 },  // Attendance Status
+      { index: 10, width: 180 }, // Attendance Time
+      { index: 11, width: 180 }  // Registration Date
+    ];
+
+    columnWidths.forEach(({ index, width }) => {
+      if (index < columnCount) {
+        requests.push({
+          updateDimensionProperties: {
+            range: {
+              sheetId: sheetId,
+              dimension: 'COLUMNS',
+              startIndex: index,
+              endIndex: index + 1
+            },
+            properties: {
+              pixelSize: width
+            },
+            fields: 'pixelSize'
+          }
+        });
+      }
+    });
+
+    await this.sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      resource: { requests }
     });
   }
 
@@ -1170,73 +1311,77 @@ class SheetsService {
       }
     ];
 
-    // Add alternating row colors for data rows
-    for (let i = 0; i < registrations.length; i++) {
-      const actualRowIndex = i + 3; // Start from row 4 (index 3)
-      const isEvenDataRow = i % 2 === 0;
-      const backgroundColor = isEvenDataRow
-        ? { red: 1, green: 1, blue: 1 } // White for even data rows
-        : { red: 0.949, green: 0.949, blue: 0.949 }; // #F2F2F2 for odd data rows
+    // Add alternating row colors for data rows (only if there are registrations)
+    if (registrations.length > 0) {
+      for (let i = 0; i < registrations.length; i++) {
+        const actualRowIndex = i + 3; // Start from row 4 (index 3)
+        const isEvenDataRow = i % 2 === 0;
+        const backgroundColor = isEvenDataRow
+          ? { red: 1, green: 1, blue: 1 } // White for even data rows
+          : { red: 0.949, green: 0.949, blue: 0.949 }; // #F2F2F2 for odd data rows
 
-      requests.push({
-        repeatCell: {
-          range: {
-            sheetId: sheetId,
-            startRowIndex: actualRowIndex,
-            endRowIndex: actualRowIndex + 1,
-            startColumnIndex: 0,
-            endColumnIndex: columnCount
-          },
-          cell: {
-            userEnteredFormat: {
-              backgroundColor: backgroundColor,
-              textFormat: {
-                fontFamily: 'Arial',
-                fontSize: 10
+        requests.push({
+          repeatCell: {
+            range: {
+              sheetId: sheetId,
+              startRowIndex: actualRowIndex,
+              endRowIndex: actualRowIndex + 1,
+              startColumnIndex: 0,
+              endColumnIndex: columnCount
+            },
+            cell: {
+              userEnteredFormat: {
+                backgroundColor: backgroundColor,
+                textFormat: {
+                  fontFamily: 'Arial',
+                  fontSize: 10
+                }
               }
-            }
-          },
-          fields: 'userEnteredFormat(backgroundColor,textFormat)'
-        }
-      });
+            },
+            fields: 'userEnteredFormat(backgroundColor,textFormat)'
+          }
+        });
+      }
     }
 
-    // Add hyperlinks for payment screenshots (simplified structure)
-    const paymentRequired = eventData.payment_required || eventData.requires_payment || false;
-    const paymentScreenshotColumnIndex = sheetData.headers.indexOf('Payment Screenshot');
+    // Add hyperlinks for payment screenshots (only if there are registrations)
+    if (registrations.length > 0) {
+      const paymentRequired = eventData.payment_required || eventData.requires_payment || false;
+      const paymentScreenshotColumnIndex = sheetData.headers.indexOf('Payment Screenshot');
 
-    if (paymentScreenshotColumnIndex !== -1 && paymentRequired) {
-      for (let i = 0; i < registrations.length; i++) {
-        const reg = registrations[i];
-        const rowIndex = i + 3; // Start from row 4 (index 3) after title, empty row, and header
+      if (paymentScreenshotColumnIndex !== -1 && paymentRequired) {
+        for (let i = 0; i < registrations.length; i++) {
+          const reg = registrations[i];
+          const rowIndex = i + 3; // Start from row 4 (index 3) after title, empty row, and header
 
-        // Only add hyperlink if there's a valid payment screenshot URL
-        if (reg.payment_screenshot_url && reg.payment_screenshot_url !== 'N/A' && reg.payment_screenshot_url.startsWith('http')) {
-          requests.push({
-            updateCells: {
-              range: {
-                sheetId: sheetId,
-                startRowIndex: rowIndex,
-                endRowIndex: rowIndex + 1,
-                startColumnIndex: paymentScreenshotColumnIndex,
-                endColumnIndex: paymentScreenshotColumnIndex + 1
-              },
-              rows: [{
-                values: [{
-                  userEnteredValue: {
-                    formulaValue: `=HYPERLINK("${reg.payment_screenshot_url}", "View Payment")`
-                  },
-                  userEnteredFormat: {
-                    textFormat: {
-                      foregroundColor: { red: 0.0, green: 0.6, blue: 0.0 }, // Green color for payment links
-                      underline: true
+          // Only add hyperlink if there's a valid payment screenshot URL
+          if (reg.payment_screenshot_url && reg.payment_screenshot_url !== 'N/A' && reg.payment_screenshot_url.startsWith('http')) {
+            requests.push({
+              updateCells: {
+                range: {
+                  sheetId: sheetId,
+                  startRowIndex: rowIndex,
+                  endRowIndex: rowIndex + 1,
+                  startColumnIndex: paymentScreenshotColumnIndex,
+                  endColumnIndex: paymentScreenshotColumnIndex + 1
+                },
+                rows: [{
+                  values: [{
+                    userEnteredValue: {
+                      formulaValue: `=HYPERLINK("${reg.payment_screenshot_url}", "View Payment")`
+                    },
+                    userEnteredFormat: {
+                      textFormat: {
+                        foregroundColor: { red: 0.0, green: 0.6, blue: 0.0 }, // Green color for payment links
+                        underline: true
+                      }
                     }
-                  }
-                }]
-              }],
-              fields: 'userEnteredValue,userEnteredFormat.textFormat'
-            }
-          });
+                  }]
+                }],
+                fields: 'userEnteredValue,userEnteredFormat.textFormat'
+              }
+            });
+          }
         }
       }
     }
