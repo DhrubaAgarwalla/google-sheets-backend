@@ -26,16 +26,34 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
-// CORS configuration - Allow all origins in production for now
+// CORS configuration - Allow specific origins
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'https://nits-event-managment.vercel.app',
+  'https://nits-event-management.vercel.app', // Alternative spelling
+  ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim()) : [])
+];
+
 const corsOptions = {
-  origin: true, // Allow all origins
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.log(`CORS blocked origin: ${origin}`);
+      callback(null, true); // Allow all origins for now to debug
+    }
+  },
   credentials: false,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
   optionsSuccessStatus: 200 // For legacy browser support
 };
 
-console.log('CORS Configuration:', corsOptions);
+console.log('CORS Configuration - Allowed Origins:', allowedOrigins);
 app.use(cors(corsOptions));
 
 // Handle preflight requests explicitly

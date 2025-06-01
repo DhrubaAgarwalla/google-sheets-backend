@@ -186,3 +186,5 @@ docker-compose*.yml
 *.backup
 *.bak
 *.orig
+
+.vercel
