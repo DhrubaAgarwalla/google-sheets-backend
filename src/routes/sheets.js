@@ -59,7 +59,8 @@ const createSheetSchema = Joi.object({
     // Attendance fields
     attendance_status: Joi.string().optional().allow('', null),
     attendance_timestamp: Joi.alternatives().try(Joi.string(), Joi.date()).optional().allow('', null)
-  }).unknown(true)).required()
+  }).unknown(true)).default([]), // Allow empty array for auto-creation
+  autoCreate: Joi.boolean().default(false) // Flag for automatic creation
 });
 
 const updateSheetSchema = Joi.object({
@@ -156,10 +157,10 @@ router.post('/create', async (req, res) => {
       });
     }
 
-    const { eventData, registrations } = value;
+    const { eventData, registrations, autoCreate } = value;
 
-    // Check if registrations array is not empty
-    if (registrations.length === 0) {
+    // For auto-creation, allow empty registrations
+    if (!autoCreate && registrations.length === 0) {
       return res.status(400).json({
         success: false,
         error: 'No registrations provided',
@@ -167,7 +168,7 @@ router.post('/create', async (req, res) => {
       });
     }
 
-    console.log(`✅ Validation passed. Creating sheet for event: ${eventData.title} with ${registrations.length} registrations`);
+    console.log(`✅ Validation passed. Creating sheet for event: ${eventData.title} with ${registrations.length} registrations (auto-create: ${autoCreate})`);
 
     // Create the Google Sheet
     const result = await sheetsService.createEventSheet(eventData, registrations);
@@ -394,6 +395,61 @@ router.delete('/:spreadsheetId', async (req, res) => {
       success: false,
       error: 'Internal server error',
       message: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/v1/sheets/auto-sync/:spreadsheetId
+ * Auto-sync endpoint for real-time updates
+ */
+router.post('/auto-sync/:spreadsheetId', async (req, res) => {
+  try {
+    const { spreadsheetId } = req.params;
+    console.log(`🔄 Auto-syncing Google Sheet: ${spreadsheetId}`);
+
+    // Validate request body
+    const schema = Joi.object({
+      eventData: Joi.object().required(),
+      registrations: Joi.array().items(Joi.object()).required(),
+      updateType: Joi.string().valid('registration', 'attendance', 'payment', 'verification').default('registration')
+    });
+
+    const { error, value } = schema.validate(req.body);
+    if (error) {
+      console.error('❌ Auto-sync validation error:', error.details[0].message);
+      return res.status(400).json({
+        success: false,
+        error: 'Validation failed',
+        details: error.details[0].message
+      });
+    }
+
+    const { eventData, registrations, updateType } = value;
+
+    console.log(`✅ Auto-syncing ${registrations.length} registrations (type: ${updateType})`);
+
+    // Update the Google Sheet
+    const result = await sheetsService.updateEventSheet(spreadsheetId, eventData, registrations);
+
+    res.json({
+      success: true,
+      data: result,
+      message: `Google Sheet auto-synced successfully (${updateType})`
+    });
+
+  } catch (error) {
+    console.error('❌ Error in auto-sync endpoint:', error);
+
+    const errorMessage = error.message || 'Unknown error occurred';
+    const statusCode = error.message?.includes('not found') ? 404 :
+                      error.message?.includes('quota') ? 429 : 500;
+
+    res.status(statusCode).json({
+      success: false,
+      error: 'Failed to auto-sync Google Sheet',
+      message: errorMessage,
+      timestamp: new Date().toISOString()
     });
   }
 });
