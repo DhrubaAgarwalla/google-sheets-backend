@@ -70,20 +70,10 @@ class EmailService {
 
       const { to, subject, html, attachments = [] } = emailData;
 
-      const fromEmail = process.env.GMAIL_USER || 'noreply@nits-event.com';
-      let fromAddress;
-
-      try {
-        fromAddress = googleConfig.getServiceAccountEmail() || fromEmail;
-      } catch (error) {
-        console.warn('⚠️ Could not get service account email, using fallback:', error.message);
-        fromAddress = fromEmail;
-      }
-
       const mailOptions = {
         from: {
           name: 'NIT Silchar Event Manager',
-          address: fromAddress
+          address: googleConfig.getServiceAccountEmail() || process.env.GMAIL_USER
         },
         to,
         subject,
