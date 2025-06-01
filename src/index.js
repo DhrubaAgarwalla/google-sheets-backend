@@ -26,32 +26,14 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
-// CORS configuration
-const allowedOrigins = process.env.ALLOWED_ORIGINS;
-
-// Configure CORS based on environment
-let corsOptions;
-if (allowedOrigins === '*') {
-  // Allow all origins
-  corsOptions = {
-    origin: true,
-    credentials: false, // Set to false when allowing all origins for security
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-  };
-} else {
-  // Use specific origins
-  const origins = allowedOrigins
-    ? allowedOrigins.split(',')
-    : ['http://localhost:3000', 'http://localhost:5173'];
-
-  corsOptions = {
-    origin: origins,
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-  };
-}
+// CORS configuration - Allow all origins in production for now
+const corsOptions = {
+  origin: true, // Allow all origins
+  credentials: false,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  optionsSuccessStatus: 200 // For legacy browser support
+};
 
 console.log('CORS Configuration:', corsOptions);
 app.use(cors(corsOptions));
@@ -131,13 +113,7 @@ app.listen(PORT, () => {
   console.log(`📊 API endpoints available at: http://localhost:${PORT}${apiPrefix}`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
 
-  // Fix CORS origins display
-  const originsDisplay = allowedOrigins === '*'
-    ? 'All origins (*)'
-    : allowedOrigins
-      ? allowedOrigins
-      : 'http://localhost:3000, http://localhost:5173';
-  console.log(`🔒 CORS enabled for origins: ${originsDisplay}`);
+  console.log(`🔒 CORS enabled for all origins`);
 });
 
 export default app;
