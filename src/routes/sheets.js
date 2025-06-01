@@ -15,9 +15,17 @@ const createSheetSchema = Joi.object({
       label: Joi.string().required(),
       type: Joi.string().required()
     }).unknown(true)).optional().default([]),
-    // Add payment-related fields
-    requires_payment: Joi.boolean().optional(),
-    payment_required: Joi.boolean().optional(),
+    // Add payment-related fields - handle various formats
+    requires_payment: Joi.alternatives().try(
+      Joi.boolean(),
+      Joi.string().valid('true', 'false', 'on', 'off'),
+      Joi.number().valid(0, 1)
+    ).optional(),
+    payment_required: Joi.alternatives().try(
+      Joi.boolean(),
+      Joi.string().valid('true', 'false', 'on', 'off'),
+      Joi.number().valid(0, 1)
+    ).optional(),
     payment_amount: Joi.alternatives().try(Joi.number(), Joi.string()).optional().allow(null, '')
   }).unknown(true).required(),
   registrations: Joi.array().items(Joi.object({
@@ -63,9 +71,17 @@ const updateSheetSchema = Joi.object({
       label: Joi.string().required(),
       type: Joi.string().required()
     }).unknown(true)).optional().default([]),
-    // Add payment-related fields
-    requires_payment: Joi.boolean().optional(),
-    payment_required: Joi.boolean().optional(),
+    // Add payment-related fields - handle various formats
+    requires_payment: Joi.alternatives().try(
+      Joi.boolean(),
+      Joi.string().valid('true', 'false', 'on', 'off'),
+      Joi.number().valid(0, 1)
+    ).optional(),
+    payment_required: Joi.alternatives().try(
+      Joi.boolean(),
+      Joi.string().valid('true', 'false', 'on', 'off'),
+      Joi.number().valid(0, 1)
+    ).optional(),
     payment_amount: Joi.alternatives().try(Joi.number(), Joi.string()).optional().allow(null, '')
   }).unknown(true).required(),
   registrations: Joi.array().items(Joi.object({
