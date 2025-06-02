@@ -145,7 +145,7 @@ class SheetsService {
         // Continue anyway - the sheet exists, just might be empty
       }
 
-      if (hasTeamRegistrations) {
+      if (supportsTeamRegistration) {
         try {
           await this.populateTeamMembersSheet(spreadsheetId, eventData, registrations);
           console.log('Successfully populated team members sheet');
@@ -180,9 +180,9 @@ class SheetsService {
         }
       }
 
-      if (hasTeamRegistrations) {
+      if (supportsTeamRegistration) {
         try {
-          await this.formatTeamMembersSheet(spreadsheetId, teamMembersSheetId, registrations);
+          await this.formatTeamMembersSheet(spreadsheetId, teamMembersSheetId, registrations, eventData);
           console.log('Successfully formatted team members sheet');
         } catch (error) {
           console.error('Failed to format team members sheet:', error.message);
@@ -1123,8 +1123,16 @@ class SheetsService {
 
     // Add team member data
     let serialNo = 1;
+
+    // For events that support both solo and team registration, include all registrations
+    const supportsTeamRegistration = eventData.participation_type === 'team' || eventData.participation_type === 'both';
+
     registrations.forEach(reg => {
-      if (reg.additional_info?.team_members?.length > 0) {
+      // Check if this is a team registration with actual team members
+      const hasTeamMembers = reg.additional_info?.team_members?.length > 0;
+
+      if (hasTeamMembers) {
+        // Handle team registrations (same as before)
         const teamName = reg.additional_info.team_name || `Team ${reg.participant_name}`;
         const teamLead = reg.participant_name;
         const teamLeadEmail = reg.participant_email;
@@ -1159,6 +1167,25 @@ class SheetsService {
             'Team Member'
           ]);
         });
+
+        // Add separator row
+        teamData.push(['', '', '', '', '', '', '', '', '', '']);
+      } else if (supportsTeamRegistration && eventData.participation_type === 'both') {
+        // For events with both solo/team registration, include individual registrations as single-person teams
+        const individualTeamName = `Individual - ${reg.participant_name}`;
+
+        teamData.push([
+          serialNo++,
+          individualTeamName,
+          reg.participant_name,
+          reg.participant_email,
+          reg.participant_phone || 'N/A',
+          reg.participant_name,
+          reg.participant_id || 'N/A',
+          reg.additional_info?.department || 'N/A',
+          reg.additional_info?.year || 'N/A',
+          'Individual Participant'
+        ]);
 
         // Add separator row
         teamData.push(['', '', '', '', '', '', '', '', '', '']);
@@ -1442,12 +1469,18 @@ class SheetsService {
   /**
    * Format the Team Members sheet with enhanced styling
    */
-  async formatTeamMembersSheet(spreadsheetId, sheetId, registrations) {
+  async formatTeamMembersSheet(spreadsheetId, sheetId, registrations, eventData) {
     // Count total team member rows for formatting
     let totalTeamMemberRows = 0;
+    const supportsTeamRegistration = eventData?.participation_type === 'team' || eventData?.participation_type === 'both';
+
     registrations.forEach(reg => {
-      if (reg.additional_info?.team_members?.length > 0) {
+      const hasTeamMembers = reg.additional_info?.team_members?.length > 0;
+
+      if (hasTeamMembers) {
         totalTeamMemberRows += 1 + reg.additional_info.team_members.length + 1; // team lead + members + separator
+      } else if (supportsTeamRegistration && eventData?.participation_type === 'both') {
+        totalTeamMemberRows += 2; // individual participant + separator
       }
     });
 
