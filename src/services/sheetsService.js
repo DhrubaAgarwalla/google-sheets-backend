@@ -256,33 +256,80 @@ class SheetsService {
    */
   async updateEventSheet(spreadsheetId, eventData, registrations) {
     try {
-      console.log(`Updating Google Sheet: ${spreadsheetId}`);
-
-      // Clear existing data (except headers)
-      await this.sheets.spreadsheets.values.clear({
-        spreadsheetId,
-        range: 'Registrations!A2:Z'
-      });
+      console.log(`Updating Google Sheet: ${spreadsheetId} with ${registrations.length} registrations`);
 
       // Prepare new data
       const sheetData = this.prepareSheetData(eventData, registrations);
 
-      // Update with new data
+      // Clear existing data (from row 4 onwards to preserve title, empty row, and headers)
+      await this.sheets.spreadsheets.values.clear({
+        spreadsheetId,
+        range: 'Registrations!A4:Z'
+      });
+
+      // Update the sheet with proper structure including title row
+      const allData = [
+        [`${eventData.title} - Event Registrations`], // Title row
+        [], // Empty row
+        sheetData.headers, // Header row
+        ...sheetData.rows // Data rows
+      ];
+
       await this.sheets.spreadsheets.values.update({
         spreadsheetId,
         range: 'Registrations!A1',
-        valueInputOption: 'RAW',
+        valueInputOption: 'USER_ENTERED', // Use USER_ENTERED to process hyperlink formulas
         resource: {
-          values: [sheetData.headers, ...sheetData.rows]
+          values: allData
         }
       });
 
-      // Get the sheet ID for formatting
+      // Get the sheet information for formatting and updating other sheets
       const spreadsheetInfo = await this.sheets.spreadsheets.get({ spreadsheetId });
       const sheetId = spreadsheetInfo.data.sheets[0].properties.sheetId;
+      const allSheets = spreadsheetInfo.data.sheets;
 
-      // Re-format the sheet
-      await this.formatSheet(spreadsheetId, sheetId, sheetData.headers.length, registrations.length);
+      // Re-format the sheet with proper row count (including title, empty row, and header)
+      const totalRowCount = registrations.length + 3; // +3 for title, empty row, and header
+      await this.formatSheet(spreadsheetId, sheetId, sheetData.headers.length, totalRowCount);
+
+      // Check if team registrations exist
+      const hasTeamRegistrations = registrations.some(reg =>
+        reg.additional_info?.team_members && reg.additional_info.team_members.length > 0
+      );
+
+      // Update Team Members sheet if it exists and there are team registrations
+      const teamMembersSheet = allSheets.find(sheet => sheet.properties.title === 'Team Members');
+      if (teamMembersSheet && hasTeamRegistrations) {
+        try {
+          console.log(`Updating Team Members sheet... (${registrations.filter(r => r.additional_info?.team_members?.length > 0).length} team registrations)`);
+          await this.populateTeamMembersSheet(spreadsheetId, eventData, registrations);
+          console.log('✅ Team Members sheet updated successfully');
+        } catch (error) {
+          console.warn('⚠️ Failed to update Team Members sheet:', error.message);
+          // Don't fail the whole operation if team sheet update fails
+        }
+      } else if (teamMembersSheet && !hasTeamRegistrations) {
+        console.log('⏭️ Team Members sheet exists but no team registrations found, skipping update');
+      }
+
+      // Update Dashboard sheet if it exists
+      const dashboardSheet = allSheets.find(sheet => sheet.properties.title === 'Dashboard');
+      if (dashboardSheet) {
+        try {
+          console.log(`Updating Dashboard sheet... (${registrations.length} total registrations)`);
+          await this.populateDashboardSheet(spreadsheetId, eventData, registrations);
+          console.log('✅ Dashboard sheet updated successfully');
+        } catch (error) {
+          console.warn('⚠️ Failed to update Dashboard sheet:', error.message);
+          // Don't fail the whole operation if dashboard update fails
+        }
+      } else {
+        console.log('⏭️ No Dashboard sheet found, skipping dashboard update');
+      }
+
+      console.log(`✅ Google Sheet updated successfully: ${registrations.length} registrations, ${sheetData.headers.length} columns`);
+      console.log(`📊 Updated sheets: Registrations${teamMembersSheet ? ', Team Members' : ''}${dashboardSheet ? ', Dashboard' : ''}`);
 
       return {
         success: true,
