@@ -66,10 +66,32 @@ class SheetsService {
         throw new Error(`Failed to prepare sheet data: ${prepError.message}`);
       }
 
-      // Check if there are team registrations
-      const hasTeamRegistrations = registrations.some(reg =>
-        reg.additional_info?.team_members?.length > 0
-      );
+      // Check if there are team registrations - improved detection with debugging
+      const hasTeamRegistrations = registrations.some(reg => {
+        // Check multiple possible indicators for team registrations
+        const isTeam = (
+          // Check if team_type is 'team' in additional_info
+          (reg.additional_info?.team_type === 'team') ||
+          // Check if registration_type is 'team' at root level
+          (reg.registration_type && reg.registration_type.toLowerCase() === 'team') ||
+          // Check if team_members array exists and has members
+          (reg.additional_info?.team_members && Array.isArray(reg.additional_info.team_members) && reg.additional_info.team_members.length > 0)
+        );
+
+        // Debug logging for team detection
+        if (isTeam) {
+          console.log(`🔍 Team registration detected for ${reg.participant_name}:`, {
+            team_type: reg.additional_info?.team_type,
+            registration_type: reg.registration_type,
+            team_members_count: reg.additional_info?.team_members?.length || 0,
+            team_members: reg.additional_info?.team_members
+          });
+        }
+
+        return isTeam;
+      });
+
+      console.log(`📊 Team detection result: hasTeamRegistrations=${hasTeamRegistrations}, total registrations=${registrations.length}`);
 
       // Create sheets array - always include Registrations and Dashboard
       const sheets = [
@@ -97,6 +119,15 @@ class SheetsService {
 
       // Only add Team Members sheet if there are team registrations
       if (hasTeamRegistrations) {
+        console.log(`✅ Adding Team Members sheet to spreadsheet (${registrations.filter(r => {
+          const isTeam = (
+            (r.additional_info?.team_type === 'team') ||
+            (r.registration_type && r.registration_type.toLowerCase() === 'team') ||
+            (r.additional_info?.team_members && Array.isArray(r.additional_info.team_members) && r.additional_info.team_members.length > 0)
+          );
+          return isTeam;
+        }).length} team registrations found)`);
+
         sheets.splice(1, 0, { // Insert at index 1 (between Registrations and Dashboard)
           properties: {
             title: 'Team Members',
@@ -107,6 +138,8 @@ class SheetsService {
             }
           }
         });
+      } else {
+        console.log(`⏭️ No team registrations found, skipping Team Members sheet creation`);
       }
 
       // Create a new spreadsheet with conditional sheets
@@ -253,10 +286,11 @@ class SheetsService {
 
   /**
    * Update an existing Google Sheet with new registration data
+   * Also checks for missing sheets (like Team Members) and creates them if needed
    */
   async updateEventSheet(spreadsheetId, eventData, registrations) {
     try {
-      console.log(`Updating Google Sheet: ${spreadsheetId} with ${registrations.length} registrations`);
+      console.log(`🔄 Updating Google Sheet: ${spreadsheetId} with ${registrations.length} registrations`);
 
       // Prepare new data
       const sheetData = this.prepareSheetData(eventData, registrations);
@@ -293,16 +327,53 @@ class SheetsService {
       const totalRowCount = registrations.length + 3; // +3 for title, empty row, and header
       await this.formatSheet(spreadsheetId, sheetId, sheetData.headers.length, totalRowCount);
 
-      // Check if team registrations exist
-      const hasTeamRegistrations = registrations.some(reg =>
-        reg.additional_info?.team_members && reg.additional_info.team_members.length > 0
-      );
+      // Check if team registrations exist - improved detection with debugging
+      const hasTeamRegistrations = registrations.some(reg => {
+        // Check multiple possible indicators for team registrations
+        const isTeam = (
+          // Check if team_type is 'team' in additional_info
+          (reg.additional_info?.team_type === 'team') ||
+          // Check if registration_type is 'team' at root level
+          (reg.registration_type && reg.registration_type.toLowerCase() === 'team') ||
+          // Check if team_members array exists and has members
+          (reg.additional_info?.team_members && Array.isArray(reg.additional_info.team_members) && reg.additional_info.team_members.length > 0)
+        );
 
-      // Update Team Members sheet if it exists and there are team registrations
-      const teamMembersSheet = allSheets.find(sheet => sheet.properties.title === 'Team Members');
-      if (teamMembersSheet && hasTeamRegistrations) {
+        // Debug logging for team detection in update
+        if (isTeam) {
+          console.log(`🔍 [UPDATE] Team registration detected for ${reg.participant_name}:`, {
+            team_type: reg.additional_info?.team_type,
+            registration_type: reg.registration_type,
+            team_members_count: reg.additional_info?.team_members?.length || 0
+          });
+        }
+
+        return isTeam;
+      });
+
+      console.log(`📊 [UPDATE] Team detection result: hasTeamRegistrations=${hasTeamRegistrations}, total registrations=${registrations.length}`);
+
+      // Check for missing sheets and create them if needed
+      await this.ensureRequiredSheetsExist(spreadsheetId, allSheets, hasTeamRegistrations, eventData, registrations);
+
+      // Re-fetch sheet information after potential sheet creation
+      const updatedSpreadsheetInfo = await this.sheets.spreadsheets.get({ spreadsheetId });
+      const updatedAllSheets = updatedSpreadsheetInfo.data.sheets;
+
+      // Handle Team Members sheet - update if exists, create if needed
+      const teamMembersSheet = updatedAllSheets.find(sheet => sheet.properties.title === 'Team Members');
+
+      if (hasTeamRegistrations && teamMembersSheet) {
+        // Update existing Team Members sheet (creation is handled by ensureRequiredSheetsExist)
         try {
-          console.log(`Updating Team Members sheet... (${registrations.filter(r => r.additional_info?.team_members?.length > 0).length} team registrations)`);
+          console.log(`Updating Team Members sheet... (${registrations.filter(r => {
+            const isTeam = (
+              (r.additional_info?.team_type === 'team') ||
+              (r.registration_type && r.registration_type.toLowerCase() === 'team') ||
+              (r.additional_info?.team_members && Array.isArray(r.additional_info.team_members) && r.additional_info.team_members.length > 0)
+            );
+            return isTeam;
+          }).length} team registrations)`);
           await this.populateTeamMembersSheet(spreadsheetId, eventData, registrations);
           console.log('✅ Team Members sheet updated successfully');
         } catch (error) {
@@ -311,10 +382,12 @@ class SheetsService {
         }
       } else if (teamMembersSheet && !hasTeamRegistrations) {
         console.log('⏭️ Team Members sheet exists but no team registrations found, skipping update');
+      } else if (hasTeamRegistrations && !teamMembersSheet) {
+        console.log('⚠️ Team registrations found but Team Members sheet missing - this should have been created by ensureRequiredSheetsExist');
       }
 
       // Update Dashboard sheet if it exists
-      const dashboardSheet = allSheets.find(sheet => sheet.properties.title === 'Dashboard');
+      const dashboardSheet = updatedAllSheets.find(sheet => sheet.properties.title === 'Dashboard');
       if (dashboardSheet) {
         try {
           console.log(`Updating Dashboard sheet... (${registrations.length} total registrations)`);
@@ -572,7 +645,16 @@ class SheetsService {
             reg.participant_student_id || reg.participant_id || 'N/A',
             reg.participant_department || reg.additional_info?.department || 'N/A',
             reg.participant_year || reg.additional_info?.year || 'N/A',
-            reg.registration_type || 'Individual',
+            // Determine registration type using improved detection
+            (() => {
+              // Check multiple possible indicators for team registrations
+              const isTeam = (
+                (reg.additional_info?.team_type === 'team') ||
+                (reg.registration_type && reg.registration_type.toLowerCase() === 'team') ||
+                (reg.additional_info?.team_members && Array.isArray(reg.additional_info.team_members) && reg.additional_info.team_members.length > 0)
+              );
+              return isTeam ? 'Team' : 'Individual';
+            })(),
             reg.status === 'registered' ? 'Confirmed' : (reg.status || 'Confirmed'),
             reg.attendance_status === 'attended' ? 'Attended' : 'Not Attended',
             attendanceTime,
@@ -650,11 +732,17 @@ class SheetsService {
                 console.warn(`Error processing payment amount for ${reg.participant_name}:`, amountError.message);
               }
 
-              // Payment screenshot - store URL for hyperlink processing later
+              // Payment screenshot - create hyperlink formula if URL exists
               let paymentScreenshot = 'N/A';
               try {
-                if (reg.payment_screenshot_url && reg.payment_screenshot_url !== 'N/A') {
-                  paymentScreenshot = reg.payment_screenshot_url; // Store URL for hyperlink processing
+                if (reg.payment_screenshot_url && reg.payment_screenshot_url !== 'N/A' && reg.payment_screenshot_url.startsWith('http')) {
+                  // Create hyperlink formula for Google Sheets
+                  const escapedUrl = reg.payment_screenshot_url.replace(/"/g, '""');
+                  paymentScreenshot = `=HYPERLINK("${escapedUrl}", "View Payment")`;
+                  console.log(`Created payment hyperlink for ${reg.participant_name}: ${paymentScreenshot}`);
+                } else if (reg.payment_screenshot_url && reg.payment_screenshot_url !== 'N/A') {
+                  // If URL doesn't start with http, just store as text
+                  paymentScreenshot = reg.payment_screenshot_url;
                 }
               } catch (screenshotError) {
                 console.warn(`Error processing payment screenshot for ${reg.participant_name}:`, screenshotError.message);
@@ -1124,7 +1212,14 @@ class SheetsService {
     // Add team member data
     let serialNo = 1;
     registrations.forEach(reg => {
-      if (reg.additional_info?.team_members?.length > 0) {
+      // Check if this is a team registration using improved detection
+      const isTeamRegistration = (
+        (reg.additional_info?.team_type === 'team') ||
+        (reg.registration_type && reg.registration_type.toLowerCase() === 'team') ||
+        (reg.additional_info?.team_members && Array.isArray(reg.additional_info.team_members) && reg.additional_info.team_members.length > 0)
+      );
+
+      if (isTeamRegistration && reg.additional_info?.team_members?.length > 0) {
         const teamName = reg.additional_info.team_name || `Team ${reg.participant_name}`;
         const teamLead = reg.participant_name;
         const teamLeadEmail = reg.participant_email;
@@ -1199,8 +1294,14 @@ class SheetsService {
       const year = reg.additional_info?.year || 'Unknown';
       yearCounts[year] = (yearCounts[year] || 0) + 1;
 
-      // Count team members
-      if (reg.additional_info?.team_members?.length > 0) {
+      // Count team members - improved detection
+      const isTeamRegistration = (
+        (reg.additional_info?.team_type === 'team') ||
+        (reg.registration_type && reg.registration_type.toLowerCase() === 'team') ||
+        (reg.additional_info?.team_members && Array.isArray(reg.additional_info.team_members) && reg.additional_info.team_members.length > 0)
+      );
+
+      if (isTeamRegistration && reg.additional_info?.team_members?.length > 0) {
         totalTeamMembers += reg.additional_info.team_members.length;
 
         // Count team member departments and years
@@ -1391,47 +1492,8 @@ class SheetsService {
       }
     }
 
-    // Add hyperlinks for payment screenshots (only if there are registrations)
-    if (registrations.length > 0) {
-      const paymentRequired = eventData.payment_required || eventData.requires_payment || false;
-      const paymentScreenshotColumnIndex = sheetData.headers.indexOf('Payment Screenshot');
-
-      if (paymentScreenshotColumnIndex !== -1 && paymentRequired) {
-        for (let i = 0; i < registrations.length; i++) {
-          const reg = registrations[i];
-          const rowIndex = i + 3; // Start from row 4 (index 3) after title, empty row, and header
-
-          // Only add hyperlink if there's a valid payment screenshot URL
-          if (reg.payment_screenshot_url && reg.payment_screenshot_url !== 'N/A' && reg.payment_screenshot_url.startsWith('http')) {
-            requests.push({
-              updateCells: {
-                range: {
-                  sheetId: sheetId,
-                  startRowIndex: rowIndex,
-                  endRowIndex: rowIndex + 1,
-                  startColumnIndex: paymentScreenshotColumnIndex,
-                  endColumnIndex: paymentScreenshotColumnIndex + 1
-                },
-                rows: [{
-                  values: [{
-                    userEnteredValue: {
-                      formulaValue: `=HYPERLINK("${reg.payment_screenshot_url}", "View Payment")`
-                    },
-                    userEnteredFormat: {
-                      textFormat: {
-                        foregroundColor: { red: 0.0, green: 0.6, blue: 0.0 }, // Green color for payment links
-                        underline: true
-                      }
-                    }
-                  }]
-                }],
-                fields: 'userEnteredValue,userEnteredFormat.textFormat'
-              }
-            });
-          }
-        }
-      }
-    }
+    // Note: Payment hyperlinks are now created directly in the data preparation step
+    // This ensures they work with both USER_ENTERED value input option
 
     await this.sheets.spreadsheets.batchUpdate({
       spreadsheetId,
@@ -1760,6 +1822,91 @@ class SheetsService {
     } catch (error) {
       console.error('Error deleting sheet:', error);
       throw new Error(`Failed to delete sheet: ${error.message}`);
+    }
+  }
+
+  /**
+   * Ensure all required sheets exist in the spreadsheet
+   * Creates missing sheets if needed (e.g., Team Members sheet when team registrations exist)
+   */
+  async ensureRequiredSheetsExist(spreadsheetId, allSheets, hasTeamRegistrations, eventData, registrations) {
+    try {
+      console.log(`🔍 Checking for missing required sheets...`);
+
+      const existingSheetTitles = allSheets.map(sheet => sheet.properties.title);
+      const missingSheets = [];
+
+      // Check if Team Members sheet is needed but missing
+      if (hasTeamRegistrations && !existingSheetTitles.includes('Team Members')) {
+        console.log(`📋 Team Members sheet is required but missing - will create it`);
+        missingSheets.push({
+          properties: {
+            title: 'Team Members',
+            tabColor: { red: 0.267, green: 0.447, blue: 0.769 }, // #4472C4
+            gridProperties: {
+              rowCount: 1000,
+              columnCount: 15
+            }
+          }
+        });
+      }
+
+      // Check if Dashboard sheet is missing (should always exist)
+      if (!existingSheetTitles.includes('Dashboard')) {
+        console.log(`📊 Dashboard sheet is missing - will create it`);
+        missingSheets.push({
+          properties: {
+            title: 'Dashboard',
+            tabColor: { red: 0.929, green: 0.490, blue: 0.192 }, // #ED7D31
+            gridProperties: {
+              rowCount: 100,
+              columnCount: 10
+            }
+          }
+        });
+      }
+
+      // Create missing sheets if any
+      if (missingSheets.length > 0) {
+        console.log(`🔧 Creating ${missingSheets.length} missing sheet(s): ${missingSheets.map(s => s.properties.title).join(', ')}`);
+
+        const requests = missingSheets.map(sheet => ({
+          addSheet: sheet
+        }));
+
+        await this.sheets.spreadsheets.batchUpdate({
+          spreadsheetId,
+          resource: { requests }
+        });
+
+        console.log(`✅ Successfully created missing sheets`);
+
+        // Populate the newly created sheets
+        for (const sheet of missingSheets) {
+          if (sheet.properties.title === 'Team Members') {
+            try {
+              await this.populateTeamMembersSheet(spreadsheetId, eventData, registrations);
+              console.log(`✅ Team Members sheet populated`);
+            } catch (error) {
+              console.warn(`⚠️ Failed to populate Team Members sheet:`, error.message);
+            }
+          } else if (sheet.properties.title === 'Dashboard') {
+            try {
+              await this.populateDashboardSheet(spreadsheetId, eventData, registrations);
+              console.log(`✅ Dashboard sheet populated`);
+            } catch (error) {
+              console.warn(`⚠️ Failed to populate Dashboard sheet:`, error.message);
+            }
+          }
+        }
+      } else {
+        console.log(`✅ All required sheets already exist`);
+      }
+
+    } catch (error) {
+      console.error('❌ Error ensuring required sheets exist:', error);
+      // Don't throw error - this is not critical enough to fail the whole update
+      console.warn('⚠️ Continuing with update despite sheet creation error');
     }
   }
 }
