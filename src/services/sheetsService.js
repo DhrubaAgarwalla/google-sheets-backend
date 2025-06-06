@@ -1197,6 +1197,16 @@ class SheetsService {
    * Populate the Dashboard sheet
    */
   async populateDashboardSheet(spreadsheetId, eventData, registrations) {
+    // Clear existing dashboard data first to prevent duplicates
+    try {
+      await this.sheets.spreadsheets.values.clear({
+        spreadsheetId,
+        range: 'Dashboard!A1:Z'
+      });
+    } catch (clearError) {
+      console.warn('Warning: Could not clear Dashboard sheet, continuing with update:', clearError.message);
+    }
+
     // Calculate statistics
     const totalRegistrations = registrations.length;
     let totalTeamMembers = 0;
