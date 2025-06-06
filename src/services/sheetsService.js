@@ -1113,7 +1113,7 @@ class SheetsService {
   }
 
   /**
-   * Populate the Team Members sheet
+   * Populate the Team Members sheet with professional formatting
    */
   async populateTeamMembersSheet(spreadsheetId, eventData, registrations) {
     const teamData = [
@@ -1121,77 +1121,100 @@ class SheetsService {
       [`Event: ${eventData.title}`], // Event info
       [`Generated: ${new Date().toLocaleString('en-IN')}`], // Generated date
       [], // Empty row
-      ['Serial No.', 'Team Name', 'Team Lead', 'Team Lead Email', 'Team Lead Phone', 'Member Name', 'Scholar ID', 'Department', 'Year', 'Notes'] // Headers
+      ['Team #', 'Team Name', 'Member Type', 'Member Name', 'Scholar ID', 'Department', 'Year', 'Contact Info', 'Notes'] // Headers
     ];
-
-    // Add team member data
-    let serialNo = 1;
 
     // For events that support both solo and team registration, include all registrations
     const supportsTeamRegistration = eventData.participation_type === 'team' || eventData.participation_type === 'both';
+    let teamNumber = 1;
 
     registrations.forEach(reg => {
       // Check if this is a team registration with actual team members
       const hasTeamMembers = reg.additional_info?.team_members?.length > 0;
 
       if (hasTeamMembers) {
-        // Handle team registrations (same as before)
+        // Handle team registrations with professional grouping
         const teamName = reg.additional_info.team_name || `Team ${reg.participant_name}`;
         const teamLead = reg.participant_name;
         const teamLeadEmail = reg.participant_email;
         const teamLeadPhone = reg.participant_phone || 'N/A';
 
+        // Add team header row with team information
+        teamData.push([
+          `TEAM ${teamNumber}`,
+          teamName,
+          '',
+          `Team Lead: ${teamLead}`,
+          '',
+          '',
+          '',
+          `Email: ${teamLeadEmail} | Phone: ${teamLeadPhone}`,
+          ''
+        ]);
+
         // Add team lead as first member
         teamData.push([
-          serialNo++,
-          teamName,
-          teamLead,
-          teamLeadEmail,
-          teamLeadPhone,
+          `${teamNumber}.1`,
+          '',
+          'Team Lead',
           teamLead,
           reg.participant_id || 'N/A',
           reg.additional_info?.department || 'N/A',
           reg.additional_info?.year || 'N/A',
-          'Team Lead'
+          `${teamLeadEmail} | ${teamLeadPhone}`,
+          'Team Leader'
         ]);
 
         // Add team members
-        reg.additional_info.team_members.forEach(member => {
+        reg.additional_info.team_members.forEach((member, index) => {
           teamData.push([
-            serialNo++,
-            teamName,
-            teamLead,
-            teamLeadEmail,
-            teamLeadPhone,
+            `${teamNumber}.${index + 2}`,
+            '',
+            'Member',
             member.name || 'N/A',
             member.rollNumber || 'N/A',
             member.department || 'N/A',
             member.year || 'N/A',
+            'N/A',
             'Team Member'
           ]);
         });
 
         // Add separator row
-        teamData.push(['', '', '', '', '', '', '', '', '', '']);
+        teamData.push(['', '', '', '', '', '', '', '', '']);
+        teamNumber++;
       } else if (supportsTeamRegistration && eventData.participation_type === 'both') {
-        // For events with both solo/team registration, include individual registrations as single-person teams
+        // For events with both solo/team registration, include individual registrations
         const individualTeamName = `Individual - ${reg.participant_name}`;
 
+        // Add individual header
         teamData.push([
-          serialNo++,
+          `INDIVIDUAL ${teamNumber}`,
           individualTeamName,
-          reg.participant_name,
-          reg.participant_email,
-          reg.participant_phone || 'N/A',
+          '',
+          `Participant: ${reg.participant_name}`,
+          '',
+          '',
+          '',
+          `Email: ${reg.participant_email} | Phone: ${reg.participant_phone || 'N/A'}`,
+          ''
+        ]);
+
+        teamData.push([
+          `${teamNumber}.1`,
+          '',
+          'Individual',
           reg.participant_name,
           reg.participant_id || 'N/A',
           reg.additional_info?.department || 'N/A',
           reg.additional_info?.year || 'N/A',
+          `${reg.participant_email} | ${reg.participant_phone || 'N/A'}`,
           'Individual Participant'
         ]);
 
         // Add separator row
-        teamData.push(['', '', '', '', '', '', '', '', '', '']);
+        teamData.push(['', '', '', '', '', '', '', '', '']);
+        teamNumber++;
       }
     });
 
@@ -1470,7 +1493,7 @@ class SheetsService {
   }
 
   /**
-   * Format the Team Members sheet with enhanced styling
+   * Format the Team Members sheet with professional styling
    */
   async formatTeamMembersSheet(spreadsheetId, sheetId, registrations, eventData) {
     // Count total team member rows for formatting
@@ -1481,9 +1504,9 @@ class SheetsService {
       const hasTeamMembers = reg.additional_info?.team_members?.length > 0;
 
       if (hasTeamMembers) {
-        totalTeamMemberRows += 1 + reg.additional_info.team_members.length + 1; // team lead + members + separator
+        totalTeamMemberRows += 2 + reg.additional_info.team_members.length + 1; // team header + team lead + members + separator
       } else if (supportsTeamRegistration && eventData?.participation_type === 'both') {
-        totalTeamMemberRows += 2; // individual participant + separator
+        totalTeamMemberRows += 3; // individual header + participant + separator
       }
     });
 
@@ -1508,7 +1531,7 @@ class SheetsService {
             startRowIndex: 0,
             endRowIndex: 1,
             startColumnIndex: 0,
-            endColumnIndex: 10
+            endColumnIndex: 9
           },
           cell: {
             userEnteredFormat: {
@@ -1534,7 +1557,7 @@ class SheetsService {
             startRowIndex: 0,
             endRowIndex: 1,
             startColumnIndex: 0,
-            endColumnIndex: 10
+            endColumnIndex: 9
           },
           mergeType: 'MERGE_ALL'
         }
@@ -1547,7 +1570,7 @@ class SheetsService {
             startRowIndex: 4,
             endRowIndex: 5,
             startColumnIndex: 0,
-            endColumnIndex: 10
+            endColumnIndex: 9
           },
           cell: {
             userEnteredFormat: {
@@ -1581,7 +1604,7 @@ class SheetsService {
             endIndex: 1
           },
           properties: {
-            pixelSize: 80 // Serial No.
+            pixelSize: 100 // Team #
           },
           fields: 'pixelSize'
         }
@@ -1609,7 +1632,7 @@ class SheetsService {
             endIndex: 3
           },
           properties: {
-            pixelSize: 200 // Team Lead
+            pixelSize: 120 // Member Type
           },
           fields: 'pixelSize'
         }
@@ -1623,7 +1646,21 @@ class SheetsService {
             endIndex: 4
           },
           properties: {
-            pixelSize: 250 // Team Lead Email
+            pixelSize: 200 // Member Name
+          },
+          fields: 'pixelSize'
+        }
+      },
+      {
+        updateDimensionProperties: {
+          range: {
+            sheetId: sheetId,
+            dimension: 'COLUMNS',
+            startIndex: 4,
+            endIndex: 5
+          },
+          properties: {
+            pixelSize: 120 // Scholar ID
           },
           fields: 'pixelSize'
         }
@@ -1637,20 +1674,58 @@ class SheetsService {
             endIndex: 6
           },
           properties: {
-            pixelSize: 200 // Member Name
+            pixelSize: 120 // Department
+          },
+          fields: 'pixelSize'
+        }
+      },
+      {
+        updateDimensionProperties: {
+          range: {
+            sheetId: sheetId,
+            dimension: 'COLUMNS',
+            startIndex: 6,
+            endIndex: 7
+          },
+          properties: {
+            pixelSize: 80 // Year
+          },
+          fields: 'pixelSize'
+        }
+      },
+      {
+        updateDimensionProperties: {
+          range: {
+            sheetId: sheetId,
+            dimension: 'COLUMNS',
+            startIndex: 7,
+            endIndex: 8
+          },
+          properties: {
+            pixelSize: 300 // Contact Info
+          },
+          fields: 'pixelSize'
+        }
+      },
+      {
+        updateDimensionProperties: {
+          range: {
+            sheetId: sheetId,
+            dimension: 'COLUMNS',
+            startIndex: 8,
+            endIndex: 9
+          },
+          properties: {
+            pixelSize: 150 // Notes
           },
           fields: 'pixelSize'
         }
       }
     ];
 
-    // Add alternating row colors for data rows (starting from row 6, index 5)
+    // Add basic styling for all data rows (starting from row 6, index 5)
     for (let i = 0; i < totalTeamMemberRows; i++) {
       const actualRowIndex = i + 5; // Start from row 6 (index 5)
-      const isEvenDataRow = i % 2 === 0;
-      const backgroundColor = isEvenDataRow
-        ? { red: 0.949, green: 0.976, blue: 0.929 } // Light green #F2F9ED for even rows
-        : { red: 1, green: 1, blue: 1 }; // White for odd rows
 
       requests.push({
         repeatCell: {
@@ -1659,11 +1734,11 @@ class SheetsService {
             startRowIndex: actualRowIndex,
             endRowIndex: actualRowIndex + 1,
             startColumnIndex: 0,
-            endColumnIndex: 10
+            endColumnIndex: 9
           },
           cell: {
             userEnteredFormat: {
-              backgroundColor: backgroundColor,
+              backgroundColor: { red: 1, green: 1, blue: 1 }, // White background
               textFormat: {
                 fontFamily: 'Arial',
                 fontSize: 10
@@ -1680,6 +1755,85 @@ class SheetsService {
         }
       });
     }
+
+    // Add special formatting for team header rows (these will be applied after the basic formatting)
+    // We'll need to identify team header rows dynamically based on the data structure
+    let currentRowIndex = 5; // Start after headers
+    registrations.forEach(reg => {
+      const hasTeamMembers = reg.additional_info?.team_members?.length > 0;
+
+      if (hasTeamMembers) {
+        // Format team header row with special styling
+        requests.push({
+          repeatCell: {
+            range: {
+              sheetId: sheetId,
+              startRowIndex: currentRowIndex,
+              endRowIndex: currentRowIndex + 1,
+              startColumnIndex: 0,
+              endColumnIndex: 9
+            },
+            cell: {
+              userEnteredFormat: {
+                backgroundColor: { red: 0.267, green: 0.447, blue: 0.769 }, // Blue background for team headers
+                textFormat: {
+                  foregroundColor: { red: 1, green: 1, blue: 1 },
+                  bold: true,
+                  fontFamily: 'Arial',
+                  fontSize: 11
+                },
+                horizontalAlignment: 'LEFT',
+                verticalAlignment: 'MIDDLE',
+                borders: {
+                  top: { style: 'SOLID', width: 2, color: { red: 0, green: 0, blue: 0 } },
+                  bottom: { style: 'SOLID', width: 2, color: { red: 0, green: 0, blue: 0 } },
+                  left: { style: 'SOLID', width: 2, color: { red: 0, green: 0, blue: 0 } },
+                  right: { style: 'SOLID', width: 2, color: { red: 0, green: 0, blue: 0 } }
+                }
+              }
+            },
+            fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,borders)'
+          }
+        });
+
+        currentRowIndex += 2 + reg.additional_info.team_members.length + 1; // team header + team lead + members + separator
+      } else if (supportsTeamRegistration && eventData?.participation_type === 'both') {
+        // Format individual header row
+        requests.push({
+          repeatCell: {
+            range: {
+              sheetId: sheetId,
+              startRowIndex: currentRowIndex,
+              endRowIndex: currentRowIndex + 1,
+              startColumnIndex: 0,
+              endColumnIndex: 9
+            },
+            cell: {
+              userEnteredFormat: {
+                backgroundColor: { red: 0.929, green: 0.490, blue: 0.192 }, // Orange background for individual headers
+                textFormat: {
+                  foregroundColor: { red: 1, green: 1, blue: 1 },
+                  bold: true,
+                  fontFamily: 'Arial',
+                  fontSize: 11
+                },
+                horizontalAlignment: 'LEFT',
+                verticalAlignment: 'MIDDLE',
+                borders: {
+                  top: { style: 'SOLID', width: 2, color: { red: 0, green: 0, blue: 0 } },
+                  bottom: { style: 'SOLID', width: 2, color: { red: 0, green: 0, blue: 0 } },
+                  left: { style: 'SOLID', width: 2, color: { red: 0, green: 0, blue: 0 } },
+                  right: { style: 'SOLID', width: 2, color: { red: 0, green: 0, blue: 0 } }
+                }
+              }
+            },
+            fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,borders)'
+          }
+        });
+
+        currentRowIndex += 3; // individual header + participant + separator
+      }
+    });
 
     await this.sheets.spreadsheets.batchUpdate({
       spreadsheetId,
