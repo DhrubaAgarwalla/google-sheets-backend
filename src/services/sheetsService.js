@@ -71,6 +71,9 @@ class SheetsService {
         reg.additional_info?.team_members?.length > 0
       );
 
+      // Check if the event supports team registration based on participation type
+      const supportsTeamRegistration = eventData.participation_type === 'team' || eventData.participation_type === 'both';
+
       // Create sheets array - always include Registrations and Dashboard
       const sheets = [
         {
@@ -95,8 +98,8 @@ class SheetsService {
         }
       ];
 
-      // Only add Team Members sheet if there are team registrations
-      if (hasTeamRegistrations) {
+      // Only add Team Members sheet if the event supports team registration or there are team registrations
+      if (supportsTeamRegistration || hasTeamRegistrations) {
         sheets.splice(1, 0, { // Insert at index 1 (between Registrations and Dashboard)
           properties: {
             title: 'Team Members',
@@ -129,7 +132,7 @@ class SheetsService {
       let teamMembersSheetId = null;
       let dashboardSheetId = null;
 
-      if (hasTeamRegistrations) {
+      if (supportsTeamRegistration || hasTeamRegistrations) {
         teamMembersSheetId = spreadsheetResponse.data.sheets[1].properties.sheetId;
         dashboardSheetId = spreadsheetResponse.data.sheets[2].properties.sheetId;
       } else {
