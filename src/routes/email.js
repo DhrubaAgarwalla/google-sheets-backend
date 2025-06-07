@@ -540,97 +540,421 @@ function generateClubApprovalEmailHTML(data) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Club Account Approved</title>
+    <title>Club Account Approved - NIT Silchar</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8f9fa; }
-        .container { background: white; border-radius: 12px; padding: 30px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
-        .header { text-align: center; border-bottom: 3px solid #007bff; padding-bottom: 20px; margin-bottom: 30px; }
-        .header h1 { color: #007bff; margin: 0; font-size: 28px; }
-        .success-icon { font-size: 48px; margin: 20px 0; }
-        .credentials-box { background: #e3f2fd; border: 2px solid #007bff; border-radius: 8px; padding: 20px; margin: 20px 0; }
-        .credentials-box h3 { color: #007bff; margin-top: 0; }
-        .credential-item { background: #f8f9fa; border-radius: 4px; padding: 10px; margin: 10px 0; font-family: monospace; font-size: 14px; }
-        .warning-box { background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 15px; margin: 20px 0; }
-        .warning-box h4 { color: #856404; margin-top: 0; }
-        .action-buttons { text-align: center; margin: 30px 0; }
-        .btn { display: inline-block; padding: 12px 24px; margin: 10px; text-decoration: none; border-radius: 6px; font-weight: bold; text-align: center; }
-        .btn-primary { background-color: #007bff; color: white; }
-        .btn-secondary { background-color: #6c757d; color: white; }
-        .instructions { background: #f8f9fa; border-radius: 8px; padding: 20px; margin: 20px 0; border: 1px solid #dee2e6; }
-        .instructions h4 { color: #007bff; margin-top: 0; }
-        .instructions ul { margin: 15px 0; padding-left: 20px; }
-        .instructions li { margin: 8px 0; color: #555; }
-        .footer { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #dee2e6; color: #666; font-size: 14px; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #2c3e50;
+            background-color: #f8fafc;
+            padding: 20px;
+        }
+        .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+            padding: 40px 30px;
+        }
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header p {
+            font-size: 16px;
+            opacity: 0.9;
+            font-weight: 300;
+        }
+        .success-badge {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .greeting {
+            font-size: 18px;
+            margin-bottom: 25px;
+            color: #2c3e50;
+        }
+        .club-info {
+            background: #f8fafc;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin: 25px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        .credentials-section {
+            background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+            border: 2px solid #667eea;
+            border-radius: 12px;
+            padding: 25px;
+            margin: 30px 0;
+            position: relative;
+        }
+        .credentials-section::before {
+            content: "🔐";
+            position: absolute;
+            top: -15px;
+            left: 20px;
+            background: white;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 20px;
+        }
+        .credentials-section h3 {
+            color: #667eea;
+            margin: 0 0 15px 0;
+            font-size: 20px;
+            font-weight: 600;
+        }
+        .credential-row {
+            display: flex;
+            align-items: center;
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 12px 0;
+            border: 1px solid #e1e8ed;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .credential-label {
+            font-weight: 600;
+            color: #667eea;
+            min-width: 120px;
+            font-size: 14px;
+        }
+        .credential-value {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 15px;
+            color: #2c3e50;
+            background: #f8fafc;
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid #e1e8ed;
+            flex: 1;
+            margin-left: 15px;
+        }
+        .security-notice {
+            background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+            border: 1px solid #f39c12;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 25px 0;
+            position: relative;
+        }
+        .security-notice::before {
+            content: "⚠️";
+            position: absolute;
+            top: -12px;
+            left: 20px;
+            background: white;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 18px;
+        }
+        .security-notice h4 {
+            color: #d68910;
+            margin: 0 0 10px 0;
+            font-size: 16px;
+            font-weight: 600;
+        }
+        .security-notice p {
+            color: #7d6608;
+            margin: 0;
+            font-size: 14px;
+        }
+        .action-section {
+            text-align: center;
+            margin: 40px 0;
+            padding: 30px 0;
+            background: #f8fafc;
+            border-radius: 12px;
+        }
+        .action-section h3 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 20px;
+        }
+        .btn {
+            display: inline-block;
+            padding: 15px 30px;
+            margin: 8px 12px;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 16px;
+            text-align: center;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+            min-width: 180px;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white !important;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+        .btn-secondary {
+            background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%);
+            color: white !important;
+            box-shadow: 0 4px 15px rgba(116, 185, 255, 0.4);
+        }
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(116, 185, 255, 0.6);
+        }
+        .features-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 30px 0;
+        }
+        .feature-card {
+            background: white;
+            border: 1px solid #e1e8ed;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .feature-icon {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        .feature-title {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 8px;
+        }
+        .feature-desc {
+            font-size: 14px;
+            color: #7f8c8d;
+            line-height: 1.4;
+        }
+        .steps-section {
+            background: white;
+            border: 1px solid #e1e8ed;
+            border-radius: 12px;
+            padding: 25px;
+            margin: 25px 0;
+        }
+        .steps-section h4 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+        }
+        .steps-section h4::before {
+            content: "📋";
+            margin-right: 10px;
+            font-size: 20px;
+        }
+        .step-item {
+            display: flex;
+            align-items: flex-start;
+            margin: 15px 0;
+            padding: 12px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border-left: 3px solid #667eea;
+        }
+        .step-number {
+            background: #667eea;
+            color: white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+        .step-content {
+            flex: 1;
+        }
+        .step-title {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 4px;
+        }
+        .step-desc {
+            font-size: 14px;
+            color: #7f8c8d;
+        }
+        .footer {
+            background: #2c3e50;
+            color: #bdc3c7;
+            text-align: center;
+            padding: 30px;
+            font-size: 14px;
+        }
+        .footer strong {
+            color: white;
+        }
+        .divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, #e1e8ed, transparent);
+            margin: 30px 0;
+        }
+        @media (max-width: 600px) {
+            .email-container { margin: 10px; }
+            .content { padding: 30px 20px; }
+            .features-grid { grid-template-columns: 1fr; }
+            .btn { min-width: auto; width: 100%; margin: 8px 0; }
+        }
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="email-container">
         <div class="header">
-            <div class="success-icon">🎉</div>
-            <h1>Club Account Approved!</h1>
-            <p>NIT Silchar Event Management System</p>
+            <div class="success-badge">✅ Account Approved</div>
+            <h1>Welcome to NIT Silchar</h1>
+            <p>Event Management System</p>
         </div>
 
-        <p>Dear <strong>${contactPerson}</strong>,</p>
-
-        <p>Congratulations! Your club registration request for <strong>${clubName}</strong> has been approved by the administration. Your club account has been successfully created in the NIT Silchar Event Management System.</p>
-
-        <div class="credentials-box">
-            <h3>🔐 Your Login Credentials</h3>
-            <p>Use these credentials to access your club dashboard:</p>
-            <div class="credential-item">
-                <strong>Email:</strong> ${email}
+        <div class="content">
+            <div class="greeting">
+                Dear <strong>${contactPerson}</strong>,
             </div>
-            <div class="credential-item">
-                <strong>Temporary Password:</strong> ${password}
+
+            <p>We are pleased to inform you that your club registration request for <strong>${clubName}</strong> has been approved by the administration. Your club account has been successfully created in the NIT Silchar Event Management System.</p>
+
+            <div class="club-info">
+                <h4 style="margin: 0 0 10px 0; color: #667eea;">🏛️ Club Registration Details</h4>
+                <p><strong>Club Name:</strong> ${clubName}</p>
+                <p><strong>Contact Person:</strong> ${contactPerson}</p>
+                <p><strong>Account Email:</strong> ${email}</p>
+                <p><strong>Status:</strong> <span style="color: #27ae60; font-weight: 600;">Active</span></p>
             </div>
+
+            <div class="credentials-section">
+                <h3>Your Login Credentials</h3>
+                <p style="margin-bottom: 20px; color: #7f8c8d;">Use these credentials to access your club dashboard:</p>
+
+                <div class="credential-row">
+                    <div class="credential-label">Email Address:</div>
+                    <div class="credential-value">${email}</div>
+                </div>
+
+                <div class="credential-row">
+                    <div class="credential-label">Temporary Password:</div>
+                    <div class="credential-value">${password}</div>
+                </div>
+            </div>
+
+            <div class="security-notice">
+                <h4>Security Requirement</h4>
+                <p><strong>Please change your password immediately after your first login</strong> for security reasons. The temporary password provided above should only be used for your initial login session.</p>
+            </div>
+
+            <div class="action-section">
+                <h3>Get Started</h3>
+                <a href="${process.env.FRONTEND_URL || 'https://nits-event-manager.vercel.app'}" class="btn btn-primary">
+                    🚀 Access Dashboard
+                </a>
+                <a href="${passwordResetLink}" class="btn btn-secondary">
+                    🔑 Change Password
+                </a>
+            </div>
+
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">📅</div>
+                    <div class="feature-title">Event Management</div>
+                    <div class="feature-desc">Create and manage club events with registration tracking</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <div class="feature-title">Analytics & Reports</div>
+                    <div class="feature-desc">Generate detailed attendance and registration reports</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📱</div>
+                    <div class="feature-title">QR Code System</div>
+                    <div class="feature-desc">Seamless attendance tracking with QR codes</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📢</div>
+                    <div class="feature-title">Live Updates</div>
+                    <div class="feature-desc">Send real-time announcements to participants</div>
+                </div>
+            </div>
+
+            <div class="steps-section">
+                <h4>Next Steps</h4>
+
+                <div class="step-item">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <div class="step-title">Login to Your Dashboard</div>
+                        <div class="step-desc">Use the credentials provided above to access your club dashboard</div>
+                    </div>
+                </div>
+
+                <div class="step-item">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <div class="step-title">Change Your Password</div>
+                        <div class="step-desc">Update your password immediately for security purposes</div>
+                    </div>
+                </div>
+
+                <div class="step-item">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <div class="step-title">Complete Club Profile</div>
+                        <div class="step-desc">Add club description, contact details, and upload your logo</div>
+                    </div>
+                </div>
+
+                <div class="step-item">
+                    <div class="step-number">4</div>
+                    <div class="step-content">
+                        <div class="step-title">Create Your First Event</div>
+                        <div class="step-desc">Start organizing events and managing registrations</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <p style="text-align: center; color: #7f8c8d; font-size: 14px;">
+                If you encounter any issues during login or need assistance with the platform, please contact the system administrators. We're here to help you make the most of the event management system.
+            </p>
+
+            <p style="text-align: center; font-weight: 600; color: #2c3e50; margin-top: 25px;">
+                Welcome aboard! We're excited to see the amazing events your club will organize.
+            </p>
         </div>
-
-        <div class="warning-box">
-            <h4>⚠️ Important Security Notice</h4>
-            <p><strong>Please change your password immediately after your first login</strong> for security reasons. The temporary password provided above should only be used for your initial login.</p>
-        </div>
-
-        <div class="action-buttons">
-            <a href="${process.env.FRONTEND_URL || 'https://nits-event-manager.vercel.app'}" class="btn btn-primary">
-                🚀 Login to Dashboard
-            </a>
-            <a href="${passwordResetLink}" class="btn btn-secondary">
-                🔑 Change Password
-            </a>
-        </div>
-
-        <div class="instructions">
-            <h4>📋 Next Steps</h4>
-            <ul>
-                <li><strong>Login</strong> to your club dashboard using the credentials above</li>
-                <li><strong>Change your password</strong> immediately for security</li>
-                <li><strong>Complete your club profile</strong> by adding description, contact details, and social links</li>
-                <li><strong>Upload your club logo</strong> if not already provided</li>
-                <li><strong>Start creating events</strong> for your club members</li>
-                <li><strong>Explore the dashboard</strong> to familiarize yourself with all features</li>
-            </ul>
-        </div>
-
-        <div class="instructions">
-            <h4>🎯 What You Can Do Now</h4>
-            <ul>
-                <li><strong>Create Events:</strong> Organize and manage club events with registration tracking</li>
-                <li><strong>Manage Registrations:</strong> View and track event registrations in real-time</li>
-                <li><strong>Generate Reports:</strong> Export attendance data and registration reports</li>
-                <li><strong>Send Updates:</strong> Post live updates and announcements for your events</li>
-                <li><strong>QR Code Attendance:</strong> Use QR codes for seamless attendance tracking</li>
-            </ul>
-        </div>
-
-        <p>If you encounter any issues during login or need assistance with the platform, please contact the system administrators or refer to the help documentation available in your dashboard.</p>
-
-        <p>Welcome to the NIT Silchar Event Management System! We're excited to see the amazing events your club will organize.</p>
 
         <div class="footer">
             <p><strong>NIT Silchar Event Management System</strong></p>
-            <p>This is an automated email. Please do not reply to this message.</p>
-            <p>For support, contact the system administrators.</p>
+            <p style="margin: 8px 0;">This is an automated email. Please do not reply to this message.</p>
+            <p>For technical support, contact the system administrators.</p>
         </div>
     </div>
 </body>
