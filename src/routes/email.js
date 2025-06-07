@@ -312,6 +312,73 @@ router.post('/send-attendance-confirmation', async (req, res) => {
 });
 
 /**
+ * POST /send-club-approval
+ * Send club approval confirmation email with login credentials
+ */
+router.post('/send-club-approval', async (req, res) => {
+  try {
+    const {
+      clubName,
+      contactPerson,
+      email,
+      password,
+      passwordResetLink
+    } = req.body;
+
+    // Validate required fields
+    const requiredFields = ['clubName', 'contactPerson', 'email', 'password'];
+    const missingFields = requiredFields.filter(field => !req.body[field]);
+
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        error: 'Missing required fields',
+        message: `Missing fields: ${missingFields.join(', ')}`
+      });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        error: 'Invalid email format',
+        message: 'Please provide a valid email address'
+      });
+    }
+
+    // Generate email HTML content
+    const emailHtml = generateClubApprovalEmailHTML({
+      clubName,
+      contactPerson,
+      email,
+      password,
+      passwordResetLink: passwordResetLink || `${process.env.FRONTEND_URL || 'https://nits-event-manager.vercel.app'}?forgot-password=true`
+    });
+
+    // Send email
+    const result = await emailService.sendEmail({
+      to: email,
+      subject: `🎉 Club Account Approved - ${clubName} | NITS Event Manager`,
+      html: emailHtml
+    });
+
+    res.json({
+      success: true,
+      message: 'Club approval email sent successfully',
+      messageId: result.messageId,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Send club approval email error:', error);
+    res.status(500).json({
+      error: 'Failed to send club approval email',
+      message: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+/**
  * GET /test-email
  * Test email configuration
  */
@@ -455,6 +522,115 @@ function generateAttendanceConfirmationHTML(data) {
         <div class="footer">
             <p><strong>NIT Silchar Event Management System</strong></p>
             <p>This is an automated confirmation email.</p>
+        </div>
+    </div>
+</body>
+</html>`;
+}
+
+/**
+ * Generate HTML for club approval confirmation email
+ */
+function generateClubApprovalEmailHTML(data) {
+  const { clubName, contactPerson, email, password, passwordResetLink } = data;
+
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Club Account Approved</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8f9fa; }
+        .container { background: white; border-radius: 12px; padding: 30px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
+        .header { text-align: center; border-bottom: 3px solid #007bff; padding-bottom: 20px; margin-bottom: 30px; }
+        .header h1 { color: #007bff; margin: 0; font-size: 28px; }
+        .success-icon { font-size: 48px; margin: 20px 0; }
+        .credentials-box { background: #e3f2fd; border: 2px solid #007bff; border-radius: 8px; padding: 20px; margin: 20px 0; }
+        .credentials-box h3 { color: #007bff; margin-top: 0; }
+        .credential-item { background: #f8f9fa; border-radius: 4px; padding: 10px; margin: 10px 0; font-family: monospace; font-size: 14px; }
+        .warning-box { background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 15px; margin: 20px 0; }
+        .warning-box h4 { color: #856404; margin-top: 0; }
+        .action-buttons { text-align: center; margin: 30px 0; }
+        .btn { display: inline-block; padding: 12px 24px; margin: 10px; text-decoration: none; border-radius: 6px; font-weight: bold; text-align: center; }
+        .btn-primary { background-color: #007bff; color: white; }
+        .btn-secondary { background-color: #6c757d; color: white; }
+        .instructions { background: #f8f9fa; border-radius: 8px; padding: 20px; margin: 20px 0; border: 1px solid #dee2e6; }
+        .instructions h4 { color: #007bff; margin-top: 0; }
+        .instructions ul { margin: 15px 0; padding-left: 20px; }
+        .instructions li { margin: 8px 0; color: #555; }
+        .footer { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #dee2e6; color: #666; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="success-icon">🎉</div>
+            <h1>Club Account Approved!</h1>
+            <p>NIT Silchar Event Management System</p>
+        </div>
+
+        <p>Dear <strong>${contactPerson}</strong>,</p>
+
+        <p>Congratulations! Your club registration request for <strong>${clubName}</strong> has been approved by the administration. Your club account has been successfully created in the NIT Silchar Event Management System.</p>
+
+        <div class="credentials-box">
+            <h3>🔐 Your Login Credentials</h3>
+            <p>Use these credentials to access your club dashboard:</p>
+            <div class="credential-item">
+                <strong>Email:</strong> ${email}
+            </div>
+            <div class="credential-item">
+                <strong>Temporary Password:</strong> ${password}
+            </div>
+        </div>
+
+        <div class="warning-box">
+            <h4>⚠️ Important Security Notice</h4>
+            <p><strong>Please change your password immediately after your first login</strong> for security reasons. The temporary password provided above should only be used for your initial login.</p>
+        </div>
+
+        <div class="action-buttons">
+            <a href="${process.env.FRONTEND_URL || 'https://nits-event-manager.vercel.app'}" class="btn btn-primary">
+                🚀 Login to Dashboard
+            </a>
+            <a href="${passwordResetLink}" class="btn btn-secondary">
+                🔑 Change Password
+            </a>
+        </div>
+
+        <div class="instructions">
+            <h4>📋 Next Steps</h4>
+            <ul>
+                <li><strong>Login</strong> to your club dashboard using the credentials above</li>
+                <li><strong>Change your password</strong> immediately for security</li>
+                <li><strong>Complete your club profile</strong> by adding description, contact details, and social links</li>
+                <li><strong>Upload your club logo</strong> if not already provided</li>
+                <li><strong>Start creating events</strong> for your club members</li>
+                <li><strong>Explore the dashboard</strong> to familiarize yourself with all features</li>
+            </ul>
+        </div>
+
+        <div class="instructions">
+            <h4>🎯 What You Can Do Now</h4>
+            <ul>
+                <li><strong>Create Events:</strong> Organize and manage club events with registration tracking</li>
+                <li><strong>Manage Registrations:</strong> View and track event registrations in real-time</li>
+                <li><strong>Generate Reports:</strong> Export attendance data and registration reports</li>
+                <li><strong>Send Updates:</strong> Post live updates and announcements for your events</li>
+                <li><strong>QR Code Attendance:</strong> Use QR codes for seamless attendance tracking</li>
+            </ul>
+        </div>
+
+        <p>If you encounter any issues during login or need assistance with the platform, please contact the system administrators or refer to the help documentation available in your dashboard.</p>
+
+        <p>Welcome to the NIT Silchar Event Management System! We're excited to see the amazing events your club will organize.</p>
+
+        <div class="footer">
+            <p><strong>NIT Silchar Event Management System</strong></p>
+            <p>This is an automated email. Please do not reply to this message.</p>
+            <p>For support, contact the system administrators.</p>
         </div>
     </div>
 </body>
